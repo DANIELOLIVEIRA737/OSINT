@@ -76,5 +76,83 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(data['results']['ip']['data']['country'],'US')
         self.assertIn('created_at',data)
 
+
+class DeepResearchTests(unittest.TestCase):
+    @patch('app.fetch')
+    def test_dns_queries_dmarc_and_separates_record_types(self, fetch):
+        import json,urllib.parse
+        def response(url):
+            query=urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+            if query['name']==['_dmarc.example.com']:
+                self.assertEqual(query['type'],['TXT'])
+                answers=[{'type':16,'data':'"v=DMARC1; p=reject"','TTL':300}]
+            else:
+                answers=[{'type':5,'data':'alias.example.com.','TTL':300},{'type':1,'data':'8.8.8.8','TTL':300}]
+            return 200,{},json.dumps({'Status':0,'Answer':answers}).encode(),False
+        fetch.side_effect=response
+        records=app.dns_info('example.com')['records']
+        self.assertEqual(records['A'],[{'value':'8.8.8.8','ttl':300}])
+        self.assertEqual(records['CNAME'],[{'value':'alias.example.com.','ttl':300}])
+        self.assertIn('v=DMARC1',records['DMARC'][0]['value'])
+        self.assertEqual(fetch.call_count,9)
+
+    def test_header_assessment_is_case_insensitive(self):
+        result=app.header_analysis({'content-security-policy':"frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'},'https://example.com')
+        self.assertTrue(result['checks']['Proteção contra framing'])
+        self.assertTrue(result['checks']['X-Content-Type-Options'])
+        self.assertFalse(result['checks']['Strict-Transport-Security'])
+    def test_technology_detection_has_evidence(self):
+        parser=app.Links('https://example.com')
+        parser.feed('<meta name><meta name="description" content><meta name="generator" content="Example CMS"><script src="/_next/static/app.js"></script>')
+        result=app.technologies({'Server':'nginx'},parser)
+        self.assertEqual({r['technology'] for r in result},{'nginx','Example CMS','Next.js'})
+        self.assertTrue(all(r['evidence'] for r in result))
+    @patch('app.json_source',return_value=[{'name_value':'*.example.com\napi.example.com\nnotexample.com\napi.example.com'}])
+    def test_certificate_names_are_scoped_and_deduplicated(self,_):
+        result=app.transparency('example.com')
+        self.assertEqual(result['domains'],['api.example.com','example.com'])
+        self.assertEqual(result['total_discovered'],2)
+    @patch('app.json_source',side_effect=[{'services':[[['com'],['http://unsafe.example/','https://registry.example/']]]},{'ldhName':'example.com','events':[{'eventAction':'registration','eventDate':'2000-01-01'}],'entities':[{'roles':['registrant'],'vcardArray':['vcard',[['fn',{},'text','Private Person'],['org',{},'text','Example Ltd']]]}]}])
+    def test_rdap_uses_bootstrap_and_omits_personal_name(self,mock):
+        result=app.registration('example.com','site')
+        self.assertEqual(mock.call_args.args[0],'https://registry.example/domain/example.com')
+        self.assertEqual(result['entities'][0]['organizations'],['Example Ltd'])
+        self.assertNotIn('Private Person',str(result))
+    @patch('app.fetch',return_value=(200,{},b'[]',True))
+    def test_truncated_provider_response_is_not_complete(self,_):
+        with self.assertRaisesRegex(RuntimeError,'limite'):
+            app.json_source('https://crt.sh/')
+    @patch('app.site_info',return_value={'status':200,'url':'https://example.com/robots.txt','text':'User-agent: *','truncated':False})
+    def test_public_documents_have_same_origin_guard(self,mock):
+        result=app.discovery('https://example.com/path')
+        self.assertEqual(len(result['documents']),3)
+        self.assertEqual(mock.call_count,3)
+        for call in mock.call_args_list:
+            self.assertEqual(call.args[2],'example.com')
+    @patch('app.public_addresses')
+    def test_discovery_redirect_cannot_escape_site(self,dns):
+        with self.assertRaisesRegex(ValueError,'fora do site'):
+            app.site_info('https://other.example/',True,'example.com')
+        dns.assert_not_called()
+    def test_unavailable_sources_do_not_create_findings(self):
+        self.assertEqual(app.summarize({'dns':{'status':'error','error':'offline'},'website':{'status':'error'}}),[])
+    @patch('app.discovery',return_value={'documents':{}})
+    @patch('app.archives',return_value={'snapshots':[]})
+    @patch('app.transparency',return_value={'domains':[]})
+    @patch('app.reverse_dns',return_value={'records':[]})
+    @patch('app.registration',return_value={'name':'example.com'})
+    @patch('app.certificate',return_value={})
+    @patch('app.site_info',return_value={'status':200})
+    @patch('app.dns_info',return_value={'records':{'TXT':[{'value':'"v=spf1 -all"'}],'DMARC':[{'value':'"v=DMARC1; p=reject"'}]}})
+    @patch('app.ip_info',return_value={'ip':'8.8.8.8'})
+    @patch('app.public_addresses',return_value=['8.8.8.8'])
+    def test_deep_mode_runs_ten_modules(self,*mocks):
+        result=app.investigate('example.com',True)
+        self.assertEqual(result['mode'],'deep')
+        self.assertEqual(result['summary']['total'],10)
+        self.assertEqual(result['summary']['completed'],10)
+        self.assertEqual(result['summary']['findings'],[])
+        self.assertTrue(all('checked_at' in r for r in result['results'].values()))
+
 if __name__=='__main__':
     unittest.main()
