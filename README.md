@@ -1,84 +1,110 @@
-# Atlas 02 — Intelligence Workspace
+# Atlas 03 — Intelligence Workspace
 
-Aplicação web de OSINT em português para domínios, sites e endereços IP públicos. Dashboard responsivo, investigação por módulos, evidências com fontes e relatórios exportáveis. Python 3.12+, sem dependências de execução externas ou chaves de API.
+Aplicação local de OSINT em português para domínios, sites, IPs públicos e empresas. Mapa interativo de relações, subdomínios verificados, projetos persistentes, comparação temporal, monitorização e relatórios. **Python 3.12+, sem dependências de execução externas.**
 
-![Interface do Atlas em computador](docs/atlas-workspace.png)
+![Interface do Atlas](docs/atlas-workspace.png)
 
-## Início rápido
+## Windows: iniciar com dois cliques
 
-1. Descarregar e extrair o ZIP do repositório, ou usar `git clone`.
-2. Abrir um terminal na pasta que contém `app.py`.
-3. Executar:
+1. Descarrega o ZIP do GitHub e **extrai todos os ficheiros**.
+2. Se ainda não tens Python, instala **Python 3.12 ou superior**, de [python.org](https://www.python.org/downloads/). Marca **Add Python to PATH**. Só precisas de fazer isto uma vez.
+3. Abre a pasta extraída e faz duplo clique em **`Iniciar Atlas.bat`**.
+
+O iniciador procura Python compatível, inicia o servidor e abre o navegador automaticamente. Se já existir um Atlas 03 na porta configurada, abre essa instância; se outra aplicação ocupar a porta, escolhe uma livre. Mantém a janela do servidor aberta. **Ctrl+C** termina a aplicação e as monitorizações; os projetos continuam guardados.
+
+Se não houver Python compatível, o `.bat` explica o requisito e abre a página oficial de download. Não instala software silenciosamente, não precisa de administrador e não altera o arranque do Windows. O `.bat` foi verificado estruturalmente e o iniciador Python foi testado; a execução nativa do `.bat` ainda não foi validada num Windows real.
+
+### Linux, macOS ou arranque manual
 
 ```sh
-python app.py
+python3 launch.py
 ```
 
-Em Linux/macOS, usar `python3 app.py`; no Windows também é possível usar `py app.py`.
-Abrir **http://localhost:8000** no navegador. Para parar, premir **Ctrl+C** no terminal.
-`PORT` permite escolher outra porta. `/health` verifica o servidor.
+Ou `python3 app.py`, abrindo manualmente **http://127.0.0.1:8000**. No Windows também podes usar `py -3 launch.py`. `/health` devolve o estado e a versão da aplicação.
 
-Para atualizar uma instalação Git, parar o servidor, executar `git pull origin main` e voltar a iniciar. Quem instalou pelo ZIP deve descarregar e extrair a versão mais recente. Uma atualização forçada do navegador pode ser necessária se houver uma versão antiga da interface em cache.
+## Projetos, notas e evidências
 
-## Pesquisa essencial e aprofundada
+- Em **Projetos & monitorização**, cria um projeto e seleciona-o na barra acima da pesquisa.
+- As novas pesquisas desse projeto ficam guardadas automaticamente. Sem projeto ativo, são avulsas; podes escolher um projeto e clicar em **Guardar no projeto** depois.
+- Cada relatório guardado tem notas e botões **Marcar evidência** por módulo. As evidências mantêm os dados e a proveniência do relatório respetivo.
+- Os projetos têm notas próprias, lista de relatórios, exportação completa em JSON e eliminação explícita.
+- O histórico lateral é apenas da sessão; os relatórios persistentes estão no projeto e sobrevivem ao reinício.
 
-| Módulo                                             | Essencial | Aprofundada | Fonte                                              |
-| -------------------------------------------------- | --------- | ----------- | -------------------------------------------------- |
-| Endereços IP                                       | Sim       | Sim         | Resolução DNS do sistema                           |
-| DNS: A, AAAA, CNAME, MX, NS, TXT, CAA, SOA e DMARC | Domínios  | Domínios    | Google Public DNS                                  |
-| HTTP, título, metadados, scripts e ligações        | Sites     | Sites       | Página indicada                                    |
-| Indicadores de segurança e tecnologias observadas  | Sites     | Sites       | Cabeçalhos e HTML                                  |
-| Certificado TLS validado                           | Sites     | Sites       | Ligação TLS ao alvo                                |
-| Operador, ASN e localização aproximada             | Sim       | Sim         | ipwho.is, primeiro IP resolvido                    |
-| Registo do domínio ou bloco IP                     | —         | Sim         | Bootstrap IANA + serviço RDAP oficial              |
-| DNS reverso                                        | —         | Sim         | Sistema, até quatro IPs                            |
-| Nomes em certificados públicos                     | —         | Domínios    | crt.sh, até 200 nomes apresentados                 |
-| Páginas históricas                                 | —         | Domínios    | Internet Archive, amostra de até 40 URLs           |
-| Documentos públicos                                | —         | Sites       | robots.txt, sitemap.xml e .well-known/security.txt |
+A base de dados SQLite fica em **`data/atlas.sqlite3`**, junto à aplicação, e está excluída do Git. Para copiar uma instalação, termina primeiro o Atlas e copia a pasta `data` inteira. Não a publiques no GitHub: pode conter pesquisas e notas privadas. A exportação JSON é legível e permite conservar os dados; ainda não existe um importador JSON na interface.
 
-Uma pesquisa aprofundada consulta até **10 módulos para domínios/sites**; os indicadores de segurança integram o módulo web. Para um IP sem URL são quatro módulos: resolução, operador, RDAP e DNS reverso. A aplicação não tenta percorrer subdomínios nem páginas históricas. Os três documentos públicos são consultados apenas no mesmo site, sem seguir os caminhos descobertos.
+**Ao atualizar pelo ZIP, preserva a pasta `data` e coloca-a na nova pasta da aplicação antes de iniciar.** Para instalações Git: termina o servidor, executa `git pull origin main` e volta a iniciar. Os ficheiros de dados ignorados pelo Git são preservados. Se necessário, atualiza o navegador com Ctrl+F5.
 
-## Relatórios e interface
+## Pesquisa e interface
 
-- Dashboard com cobertura dos módulos, IPs, nomes em certificados e pontos a rever.
-- Filtros por infraestrutura, web/TLS e rasto digital; pesquisa textual nas evidências.
-- Tecnologias acompanhadas da evidência observada, sem pressupor versões ou vulnerabilidades.
-- Notas sobre HTTPS, cabeçalhos, SPF/DMARC e certificados próximos da expiração.
-- Histórico dos últimos 12 relatórios apenas na memória da página. Desaparece ao atualizar/fechar.
-- Exportação JSON com fontes, data UTC, duração, resultados e falhas por módulo.
-- Impressão / guardar em PDF através do navegador, incluindo os módulos e secções recolhidas.
-- Interface local sem fontes tipográficas ou bibliotecas carregadas de terceiros.
+| Área        | Dados e ações                                                                                                                                                                           |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Essencial   | IPs, DNS A/AAAA/CNAME/MX/NS/TXT/CAA/SOA/DMARC, HTTP, metadados, scripts, tecnologias observadas, cabeçalhos, TLS, operador e ASN                                                        |
+| Aprofundada | RDAP, DNS reverso, nomes CT, amostra Internet Archive, documentos públicos e descoberta/verificação de subdomínios; até **11 módulos** para sites                                       |
+| Subdomínios | Cruzamento de crt.sh, HackerTarget e nomes do certificado TLS. Até **12 nomes** verificados via DNS e HTTPS, sem brute force. Nomes adicionais ficam identificados como não verificados |
+| Empresas    | Candidatos organizacionais Wikidata com sites/identificadores e registos LEI GLEIF. Correspondências por nome são hipóteses; não confirma identidade ou propriedade                     |
+| Mapa        | Nós de alvos, domínios, IPs, ASN, organizações e certificados; seleção com evidências, filtro por tipo, zoom, reposição e arrasto. Relações por nome aparecem tracejadas                |
+| Comparação  | Duas observações do mesmo alvo/modo, com antes/depois e cobertura por fonte. Novas pesquisas num projeto recebem comparação com a anterior quando existe                                |
+| Relatórios  | Exportação JSON e **Imprimir / PDF** com capa, resumo executivo, metodologia, mapa, evidências, fontes e notas                                                                          |
 
-## Interpretação e limites
+**Empresas:** usa o menu **Pesquisar empresas**. Os sites candidatos têm **Investigar site**, que prepara a pesquisa para confirmação antes de a executar. A GLEIF só cobre entidades com LEI e o filtro Wikidata usa classes organizacionais conhecidas; os resultados não são uma lista exaustiva de empresas.
 
-Um cabeçalho ausente é um indicador a analisar, não a confirmação de uma vulnerabilidade. Uma política presente pode estar mal configurada. SPF/DMARC podem não ser necessários num domínio que não envia correio; DMARC pode ser herdado. Nomes CT são históricos e podem já não estar ativos. A amostra do Internet Archive não é um inventário completo ou necessariamente recente. A localização IP é aproximada e não identifica uma pessoa ou morada.
+**Mapa:** as relações são derivadas dos dados recolhidos, com fonte por ligação. Partilhar IP, ASN ou certificado não comprova propriedade comum. O mapa limita a visualização a 120 nós e 220 ligações; os dados dos módulos continuam disponíveis. Nos subdomínios, até 20 nomes do módulo alimentam o mapa.
 
-Os registos RDAP podem ocultar campos; alguns serviços não têm registos próprios para subdomínios. Não se tenta adivinhar o domínio organizacional sem uma Public Suffix List. A consulta RDAP nesses casos pode devolver 404. Contactos pessoais não são extraídos dos vCards do RDAP.
+**PDF:** clica em **Imprimir / PDF** e escolhe **Guardar como PDF** no navegador. Os módulos filtrados e secções recolhidas são incluídos na impressão; o mapa é reposto para mostrar todos os tipos. A geração usa o navegador, sem instalar bibliotecas PDF.
 
-Os fornecedores externos têm os seus próprios limites e termos. Antes de comercializar um serviço baseado nestas APIs, confirmar as respetivas condições e licenças. A aplicação mostra falhas por fonte em vez de apresentar dados inventados. Corpos HTTP são limitados a 512 KiB, documentos a excertos de 12 000 caracteres, respostas JSON a 2 MiB (CT: 4 MiB). JSON truncado é rejeitado para não ser apresentado como completo.
+## Monitorização e alterações
 
-## Rede, privacidade e execução
+No projeto, introduz um domínio, URL ou IP e escolhe um intervalo: 1, 6, 12, 24 ou 168 horas. As monitorizações usam pesquisa aprofundada e ignoram cache. Há botões para executar imediatamente, pausar/retomar e abrir a última pesquisa. O botão **Atualizar** recarrega estados e relatórios. A página aberta verifica novos relatórios a cada 30 segundos e apresenta um aviso local quando o total aumenta.
 
-Não há persistência de pesquisas no servidor, nem histórico em localStorage. Fornecedores recebem as consultas e o site recebe pedidos HTTP/TLS. Não são registados alvos nem relatórios nos logs da aplicação. Cookies devolvidos pelo site são excluídos do relatório. Exportações são ficheiros criados pelo utilizador.
+**O Atlas tem de estar aberto e o computador ligado à internet.** Não é um serviço Windows nem um serviço cloud permanente. Depois de reiniciar, pesquisas vencidas são executadas uma vez, sem repetir todos os intervalos perdidos. Uma monitorização corre de cada vez; até 30 podem estar configuradas.
 
-São necessários:
+A comparação:
 
-- HTTPS para `dns.google`, `ipwho.is`, `data.iana.org`, `crt.sh`, `web.archive.org` e o serviço RDAP indicado pelo bootstrap IANA para o alvo.
-- DNS e saída TCP direta 80/443 para os sites consultados. HTTP e TLS ligam a um IP público validado, preservando Host/SNI e a verificação do certificado.
+- Deteta alterações nos dados recolhidos: IPs, nomes descobertos, certificados, políticas e outros campos.
+- Ignora TTL, ordem de listas, tempos de consulta e proveniência/cache.
+- Só compara módulos com dados nas duas pesquisas. Uma fonte indisponível nunca é tratada como remoção.
+- Apresenta até 200 alterações; atingido o limite, os relatórios completos continuam disponíveis.
+- As fontes com amostras limitadas, como CT/arquivos/subdomínios, só permitem comparar a amostra observada, não afirmar que um ativo deixou de existir.
 
-Redes privadas, reservadas, URLs com credenciais e portas diferentes de 80/443 são rejeitadas. Todos os redirecionamentos HTTP são novamente validados; documentos não seguem redirecionamentos para outro site. A aplicação não faz exploração, port scanning nem consultas autenticadas.
+## Cache, fontes e limites
 
-O servidor destina-se a um ambiente de desenvolvimento de confiança. Para exposição pública são necessários autenticação, HTTPS e limites por utilizador num reverse proxy. Há um máximo de quatro pesquisas em simultâneo e oito workers de consulta; cada pedido de rede tem timeout, mas o DNS do sistema depende do resolver do sistema operativo. O tempo de uma pesquisa não é garantido.
+Respostas JSON válidas têm cache em memória de 5 minutos; o bootstrap IANA tem 24 horas. Até 64 entradas e aproximadamente 32 MiB de corpos de resposta são retidos. Falhas e JSON truncado não são guardados em cache. Proveniência mostra URL, data de obtenção e utilização de cache. Usa **Atualizar fontes em cache** para ignorá-la numa pesquisa manual. HTTP/TLS diretos e a descoberta HackerTarget são consultados de novo. Limites dos fornecedores são mostrados como erros; não se insiste automaticamente em pedidos recusados.
 
-### Estado de validação no ambiente cloud
+Fontes HTTPS necessárias: `dns.google`, `ipwho.is`, `data.iana.org`, `crt.sh`, `web.archive.org`, `api.hackertarget.com`, `www.wikidata.org`, `api.gleif.org` e o serviço RDAP oficial selecionado no bootstrap IANA. A inspeção de sites requer DNS e saída TCP direta 80/443 para o alvo.
 
-A interface, a API e os parsers foram validados com testes e respostas controladas. Neste ambiente, os pedidos reais aos fornecedores devolvem bloqueio HTTP 403 do proxy e a resolução DNS pública pode falhar. Isto impede confirmar a integração externa completa aqui; as permissões têm de ser aplicadas nas definições do ambiente. Ter o servidor a responder não prova que as fontes externas estejam acessíveis. Num computador local é necessária internet e acesso aos destinos acima.
+Um cabeçalho ausente não confirma vulnerabilidade. A presença de um cabeçalho não garante uma política eficaz. DMARC pode ser herdado; um domínio pode não enviar correio. Localização IP é aproximada e não identifica uma pessoa ou morada. Certificados históricos não provam atividade atual. RDAP pode ocultar campos e não ter registo para subdomínios. A amostra do Internet Archive é de até 40 URLs e não é necessariamente recente.
 
-## Desenvolvimento e testes
+Corpos HTTP: 512 KiB; excertos de documentos: 12 000 caracteres; JSON: 2 MiB, CT: 4 MiB. Documentos consultados: `robots.txt`, `sitemap.xml` e `.well-known/security.txt`, sem percorrer os caminhos encontrados. São até quatro IPs no DNS reverso e até 200 nomes apresentados no módulo CT.
+
+Os fornecedores recebem as consultas e têm termos próprios. Antes de comercializar um serviço baseado nestas fontes, confirma licenças e quotas. Não são necessárias chaves para as consultas implementadas, mas o acesso gratuito pode ter limites.
+
+## Segurança e configuração local
+
+Por defeito o servidor escuta **apenas em `127.0.0.1`**, verifica o Host e rejeita submissões de outras origens. Não há contas de utilizador ou autenticação: destina-se ao teu computador. Não exponhas a pasta de dados nem o servidor publicamente sem autenticação, HTTPS e controlo de acesso num reverse proxy.
+
+Os destinos HTTP são validados como públicos, ligando ao IP validado com Host/SNI corretos, e os redirecionamentos são novamente verificados. Portas diferentes de 80/443, redes privadas/reservadas e URLs com credenciais são rejeitadas. Os documentos públicos não seguem redirecionamentos para outro site. A verificação TLS permanece ativa. Cookies recebidos não são guardados no relatório; alvos e relatórios não são escritos nos logs de pedidos.
+
+Configuração opcional por variáveis de ambiente:
+
+| Variável             | Valor padrão / efeito                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `PORT`               | `8000`; o iniciador escolhe outra porta se estiver ocupada                               |
+| `ATLAS_DATA_DIR`     | Pasta `data` junto à aplicação; define uma pasta gravável para persistência              |
+| `ATLAS_HOST`         | `127.0.0.1` no arranque manual; o iniciador usa sempre loopback                          |
+| `ATLAS_ALLOW_REMOTE` | Apenas `1` permite Host remoto, para ambientes protegidos e configurados conscientemente |
+
+Até quatro pesquisas podem decorrer em simultâneo, com oito workers partilhados e quatro workers na verificação limitada de subdomínios. Pedidos têm timeout de rede; o DNS do sistema depende do resolver do sistema operativo. Não há garantia de duração máxima.
+
+## Validação
 
 ```sh
 python3 -m unittest discover -s tests -v
 node --check static/app.js
+node --check static/workspace.js
 ```
 
-Os testes cobrem parsing de alvos, rejeição de redes privadas, API HTTP, falhas parciais, fontes aprofundadas, âmbito de nomes CT, descoberta limitada ao mesmo site, RDAP e análise de cabeçalhos. Não precisam de acesso externo. Não existe etapa de compilação.
+O teste GUI opcional está em `tests/browser_smoke.py`. Usa Playwright e Chromium apenas para desenvolvimento (não são dependências da aplicação). Prepara-os no teu ambiente de testes e executa `python3 tests/browser_smoke.py`. O script inicia um servidor e uma base de dados temporários próprios; não toca nos teus projetos. `CHROMIUM_PATH` permite indicar um executável Chromium e `ATLAS_BROWSER_OUTPUT` a pasta dos screenshots/PDFs.
+
+Os testes cobrem parsers, API, bloqueio de redes privadas/origens/Host, cache, fontes com respostas controladas, mapa, comparação, persistência SQLite, notas/evidências, eliminação em cascata, agendamento, execução de monitorizações e iniciador Python. Os fluxos GUI foram exercitados em Chromium, incluindo projetos reais em SQLite, recarregamento, comparação, empresas, subdomínios, mapa, exportações JSON/PDF e layout móvel. As respostas externas nos testes GUI são fixtures explícitas.
+
+**Limitação deste ambiente cloud:** as consultas reais aos fornecedores continuam bloqueadas com HTTP 403 do proxy e/ou falhas de DNS. Isto impede confirmar aqui a integração externa completa. As permissões guardadas nas definições precisam de ser aplicadas e as consultas repetidas; o sucesso da GUI e da persistência não prova acesso às fontes. A execução do `.bat` também precisa de validação nativa no Windows.

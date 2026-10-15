@@ -7,6 +7,7 @@
     <title>Atlas — Intelligence Workspace</title>
     <link rel="stylesheet" href="/style.css" />
     <script src="/app.js" defer></script>
+    <script src="/workspace.js" defer></script>
   </head>
   <body>
     <aside class="sidebar">
@@ -23,6 +24,11 @@
       </div>
       <p class="nav-label">WORKSPACE</p>
       <nav aria-label="Navegação principal">
+        <button class="nav-item" id="show-projects">
+          <span data-icon="layers"></span>Projetos & monitorização</button
+        ><button class="nav-item" id="show-company">
+          <span data-icon="globe"></span>Pesquisar empresas
+        </button>
         <button class="nav-item active" id="new-search">
           <span data-icon="search"></span>Investigar<span class="key"
             >/</span
@@ -30,7 +36,7 @@
         ><button class="nav-item" id="show-sources">
           <span data-icon="layers"></span>Catálogo de fontes<span
             class="nav-count"
-            >8</span
+            >11</span
           >
         </button>
       </nav>
@@ -47,10 +53,10 @@
         <div class="privacy-icon" data-icon="shield"></div>
         <strong>Informação com contexto.</strong>
         <p>
-          Fontes identificadas. Evidências visíveis. Sem guardar pesquisas no
-          servidor.
+          Fontes identificadas. Evidências visíveis. Projetos guardados apenas
+          no teu computador.
         </p>
-        <span class="version">ATLAS 02 <span>PUBLIC EDITION</span></span>
+        <span class="version">ATLAS 03 <span>PUBLIC EDITION</span></span>
       </div>
     </aside>
     <div class="app-shell">
@@ -75,7 +81,45 @@
           </div>
           <span class="heading-icon" data-icon="globe"></span>
         </div>
-        <section class="search-panel" aria-label="Nova investigação">
+        <section class="project-strip" aria-label="Projeto ativo">
+          <label for="active-project">PROJETO</label
+          ><select id="active-project">
+            <option value="">Pesquisa avulsa · sem guardar</option></select
+          ><button type="button" id="quick-project" class="secondary">
+            + Novo projeto</button
+          ><span id="storage-status">Projetos locais em SQLite</span>
+        </section>
+        <section id="company-panel" class="panel" hidden>
+          <div class="section-heading">
+            <h2>Pesquisa de empresas</h2>
+            <button id="close-company" class="secondary">
+              Voltar aos domínios
+            </button>
+          </div>
+          <p class="panel-description">
+            Cruza Wikidata e registos LEI da GLEIF. Os resultados são candidatos
+            por nome; confirma a identidade antes de associar um domínio.
+          </p>
+          <form id="company-search">
+            <label for="company-query">NOME DA EMPRESA</label>
+            <div class="searchbar">
+              <input
+                id="company-query"
+                required
+                minlength="2"
+                maxlength="160"
+                placeholder="Ex.: nome legal ou marca"
+              /><button class="primary" id="company-submit">
+                Pesquisar empresa
+              </button>
+            </div>
+          </form>
+        </section>
+        <section
+          id="domain-search"
+          class="search-panel"
+          aria-label="Nova investigação"
+        >
           <form id="search">
             <label for="target">ALVO DA INVESTIGAÇÃO</label>
             <div class="searchbar">
@@ -109,10 +153,15 @@
                 </button>
               </div>
               <span id="mode-description"
-                >Até 10 módulos · fontes públicas · sem chave de API</span
+                >Até 11 módulos · fontes públicas · verificação limitada de
+                subdomínios</span
               >
             </div>
           </form>
+          <label class="refresh-option"
+            ><input type="checkbox" id="fresh-search" />Atualizar fontes em
+            cache (ignorar cache de 5 minutos)</label
+          >
           <div class="search-foot">
             <span data-icon="lock"></span>Apenas informação pública. As fontes
             externas recebem as consultas.
@@ -214,6 +263,28 @@
               </button>
             </div>
           </div>
+          <section id="print-cover" class="print-cover">
+            <div class="eyebrow">ATLAS / INTELLIGENCE REPORT</div>
+            <h2 id="cover-target"></h2>
+            <p id="cover-date"></p>
+            <p id="cover-project"></p>
+            <div class="cover-rule"></div>
+            <h3>Resumo executivo</h3>
+            <p id="cover-summary"></p>
+            <h3>Metodologia e limites</h3>
+            <p>
+              Fontes públicas consultadas na data indicada. Correspondências por
+              nome são hipóteses; infraestrutura partilhada não confirma
+              propriedade. Indisponibilidade reduz a cobertura. Indicadores de
+              configuração não constituem uma auditoria de segurança.
+            </p>
+          </section>
+          <div class="report-persistence">
+            <span id="saved-state">Relatório avulso</span
+            ><button id="save-report" class="secondary">
+              Guardar no projeto
+            </button>
+          </div>
           <div class="metrics">
             <article>
               <span>MÓDULOS CONCLUÍDOS</span
@@ -234,6 +305,112 @@
               ><small>Indicadores, não vulnerabilidades</small>
             </article>
           </div>
+          <section id="company-candidates" class="panel" hidden>
+            <div class="section-heading">
+              <h3>Empresas e sites candidatos</h3>
+              <span>RELAÇÕES A CONFIRMAR</span>
+            </div>
+            <div id="candidate-list"></div>
+          </section>
+          <section class="panel graph-panel">
+            <div class="section-heading">
+              <h3>Mapa de relações</h3>
+              <div class="graph-actions">
+                <button
+                  id="graph-out"
+                  class="secondary"
+                  aria-label="Reduzir mapa"
+                >
+                  −</button
+                ><button id="graph-reset" class="secondary">Repor</button
+                ><button
+                  id="graph-in"
+                  class="secondary"
+                  aria-label="Ampliar mapa"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div class="graph-toolbar">
+              <label
+                >Tipo
+                <select id="graph-filter">
+                  <option value="all">Todos</option>
+                  <option value="domain">Domínios</option>
+                  <option value="ip">IPs</option>
+                  <option value="organization">Organizações</option>
+                  <option value="asn">ASN</option>
+                  <option value="certificate">Certificados</option>
+                </select></label
+              ><span
+                >Seleciona um nó para ver as evidências · arrasta para
+                mover</span
+              >
+            </div>
+            <div class="graph-layout">
+              <svg
+                id="relation-graph"
+                viewBox="0 0 960 480"
+                role="img"
+                aria-label="Mapa interativo de relações observadas"
+              ></svg>
+              <div id="graph-detail" class="graph-detail" aria-live="polite">
+                Seleciona um nó do mapa.
+              </div>
+            </div>
+            <p id="graph-note" class="card-note"></p>
+          </section>
+          <section id="subdomain-panel" class="panel" hidden>
+            <div class="section-heading">
+              <h3>Subdomínios · descoberta e atividade</h3>
+              <span id="subdomain-summary"></span>
+            </div>
+            <p class="panel-description">
+              DNS resolvido e resposta HTTPS são observações distintas. Uma
+              falha não confirma inatividade. Até 12 nomes verificados por
+              pesquisa.
+            </p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nome / fontes</th>
+                    <th>DNS / IPs</th>
+                    <th>HTTPS</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="subdomain-rows"></tbody>
+              </table>
+            </div>
+            <details id="unverified-hosts">
+              <summary>Nomes adicionais não verificados</summary>
+              <div id="unverified-list"></div>
+            </details>
+          </section>
+          <section id="comparison-panel" class="panel" hidden>
+            <div class="section-heading">
+              <h3>Comparação temporal</h3>
+              <span id="comparison-count"></span>
+            </div>
+            <div id="comparison-content"></div>
+          </section>
+          <section id="report-notes-panel" class="panel" hidden>
+            <div class="section-heading">
+              <h3>Notas e evidências guardadas</h3>
+              <button id="save-notes" class="secondary">Guardar notas</button>
+            </div>
+            <label for="report-notes">Notas deste relatório</label
+            ><textarea
+              id="report-notes"
+              rows="3"
+              maxlength="50000"
+              placeholder="Contexto, hipóteses e conclusões do analista…"
+            ></textarea>
+            <pre id="print-notes" class="print-only-note"></pre>
+            <div id="bookmarked-list"></div>
+          </section>
           <div class="analysis-layout">
             <section class="findings-panel">
               <div class="section-heading">
@@ -282,6 +459,88 @@
         </footer>
       </main>
     </div>
+    <dialog id="projects-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">WORKSPACE LOCAL</div>
+          <h2>Projetos & monitorização</h2>
+        </div>
+        <button id="refresh-projects" class="secondary">Atualizar</button
+        ><button id="close-projects" class="icon-button" aria-label="Fechar">
+          ×
+        </button>
+      </div>
+      <p>
+        Os projetos, relatórios e notas ficam na pasta data deste computador.
+        Faz uma cópia de segurança antes de substituir a instalação.
+      </p>
+      <form id="project-create">
+        <label for="project-name">CRIAR PROJETO</label>
+        <div class="inline-form">
+          <input
+            id="project-name"
+            required
+            maxlength="120"
+            placeholder="Nome da investigação"
+          /><button class="primary">Criar projeto</button>
+        </div>
+      </form>
+      <div id="project-list"></div>
+      <section id="project-detail" hidden>
+        <div class="section-heading">
+          <h3 id="project-detail-name"></h3>
+          <div class="report-actions">
+            <button id="project-backup" class="secondary">
+              Exportar projeto JSON</button
+            ><button id="project-delete" class="secondary danger">
+              Eliminar projeto
+            </button>
+          </div>
+        </div>
+        <label for="project-notes">Notas do projeto</label
+        ><textarea id="project-notes" rows="3" maxlength="50000"></textarea
+        ><button id="save-project-notes" class="secondary">
+          Guardar notas do projeto
+        </button>
+        <h3>Relatórios guardados</h3>
+        <p class="panel-description">
+          Para comparar, escolhe duas pesquisas do mesmo alvo e modo.
+        </p>
+        <div class="inline-form">
+          <select id="compare-before" aria-label="Relatório anterior"></select
+          ><select id="compare-after" aria-label="Relatório posterior"></select
+          ><button id="compare-reports" class="secondary">Comparar</button>
+        </div>
+        <div id="project-reports"></div>
+        <h3>Monitorização</h3>
+        <p class="panel-description">
+          Executa apenas com o Atlas aberto. Ao reiniciar, pesquisas vencidas
+          são retomadas uma vez, sem repetir todos os intervalos perdidos. A
+          pesquisa agendada ignora a cache.
+        </p>
+        <form id="monitor-create">
+          <label for="monitor-target">DOMÍNIO, URL OU IP</label>
+          <div class="inline-form">
+            <input
+              id="monitor-target"
+              required
+              placeholder="exemplo.pt"
+            /><select
+              id="monitor-hours"
+              aria-label="Intervalo de monitorização"
+            >
+              <option value="1">A cada hora</option>
+              <option value="6">A cada 6 horas</option>
+              <option value="12">A cada 12 horas</option>
+              <option value="24" selected>Diariamente</option>
+              <option value="168">Semanalmente</option></select
+            ><button class="primary">Monitorizar</button>
+          </div>
+        </form>
+        <div id="monitor-list"></div>
+      </section>
+      <p id="project-message" role="status" aria-live="polite"></p>
+    </dialog>
     <dialog id="sources-dialog">
       <div class="dialog-heading">
         <div>

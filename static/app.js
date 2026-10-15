@@ -38,6 +38,21 @@ document
   .querySelectorAll("[data-icon]")
   .forEach((n) => n.append(icon(n.dataset.icon)));
 const modules = {
+  subdomains: {
+    title: "Subdomínios e atividade",
+    group: "infra",
+    icon: "network",
+  },
+  company: {
+    title: "Empresas candidatas · Wikidata",
+    group: "infra",
+    icon: "globe",
+  },
+  business_registry: {
+    title: "Registos de empresas · LEI",
+    group: "infra",
+    icon: "layers",
+  },
   network: { title: "Resolução de rede", group: "infra", icon: "network" },
   dns: { title: "DNS & autenticação de email", group: "infra", icon: "layers" },
   ip: { title: "Rede, operador & ASN", group: "infra", icon: "globe" },
@@ -66,6 +81,27 @@ const modules = {
   },
 };
 const labels = {
+  hosts: "Subdomínios verificados",
+  host: "Nome",
+  dns_state: "Estado DNS",
+  http_state: "Estado HTTPS",
+  http_status: "Resposta HTTP",
+  http_error: "Limitação HTTPS",
+  total_candidates: "Nomes candidatos",
+  checked: "Nomes verificados",
+  unverified: "Nomes não verificados",
+  sources: "Fontes",
+  candidates: "Empresas candidatas",
+  websites: "Sites indicados",
+  classification: "Estado da relação",
+  description: "Descrição",
+  lei: "LEI",
+  jurisdiction: "Jurisdição",
+  registration_status: "Estado do registo",
+  provenance: "Proveniência",
+  cached: "Servido de cache",
+  fetched_at: "Dados obtidos em",
+  ttl_seconds: "Cache (segundos)",
   addresses: "Endereços IP",
   url: "URL",
   status: "Estado",
@@ -136,6 +172,13 @@ const labels = {
   note: "Nota",
 };
 const catalog = [
+  [
+    "HackerTarget",
+    "Nomes públicos de subdomínios, cruzados com CT/TLS",
+    "Aprofundada",
+  ],
+  ["Wikidata", "Candidatos por nome e sites indicados", "Empresas"],
+  ["GLEIF", "Registos LEI de entidades legais", "Empresas"],
   ["Google Public DNS", "DNS e políticas de email", "Essencial"],
   [
     "Resolução do sistema",
@@ -303,6 +346,8 @@ function renderCard(name, result) {
       content.append(detail(`Scripts públicos (${scripts.length})`, scripts));
     if (note) content.append(el("p", note, "card-note"));
   }
+  if (result.provenance?.length)
+    content.append(detail("Origem e atualidade dos dados", result.provenance));
   card.append(content);
   const foot = el("div", undefined, "source");
   const source = result.data?.source;
@@ -378,7 +423,7 @@ function render() {
     $("cards").append(renderCard(name, result));
   $("report-title").textContent = report.target;
   $("report-date").textContent =
-    `${new Date(report.created_at).toLocaleString("pt-PT")} · ${report.mode === "deep" ? "Pesquisa aprofundada" : "Pesquisa essencial"} · ${((report.duration_ms || 0) / 1000).toFixed(1)}s`;
+    `${new Date(report.created_at).toLocaleString("pt-PT")} · ${report.mode === "deep" ? "Pesquisa aprofundada" : report.mode === "company" ? "Pesquisa empresarial" : "Pesquisa essencial"} · ${((report.duration_ms || 0) / 1000).toFixed(1)}s`;
   $("metric-sources").textContent = `${completed}/${total}`;
   $("metric-status").textContent =
     completed === total
@@ -402,6 +447,7 @@ function render() {
     ? `Investigação concluída. ${completed} de ${total} módulos com dados; consulta as limitações de cada fonte.`
     : "As fontes ficaram indisponíveis. O relatório contém os erros de cada consulta; não há dados confirmados sobre o alvo.";
   applyFilters();
+  if (typeof renderWorkspaceReport === "function") renderWorkspaceReport();
 }
 function applyFilters() {
   const query = $("filter").value.toLocaleLowerCase("pt-PT");
@@ -432,7 +478,14 @@ function renderHistory() {
     button.append(
       icon("clock"),
       el("span", item.target),
-      el("small", item.mode === "deep" ? "PROF." : "ESS."),
+      el(
+        "small",
+        item.mode === "deep"
+          ? "PROF."
+          : item.mode === "company"
+            ? "EMP."
+            : "ESS.",
+      ),
     );
     button.title = "Abrir relatório desta sessão: " + item.target;
     button.addEventListener("click", () => {
@@ -456,7 +509,7 @@ function setMode(value) {
     $(id).setAttribute("aria-pressed", String(on));
   }
   $("mode-description").textContent = deep
-    ? "Até 10 módulos · fontes públicas · sem chave de API"
+    ? "Até 11 módulos · fontes públicas · verificação limitada de subdomínios"
     : "Até 5 módulos · DNS, web, TLS e rede";
 }
 $("mode-standard").addEventListener("click", () => setMode(false));
@@ -489,12 +542,18 @@ $("search").addEventListener("submit", async (e) => {
     const response = await fetch("/api/investigate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target, deep }),
+      body: JSON.stringify({
+        target,
+        deep,
+        expand: deep,
+        refresh: $("fresh-search").checked,
+      }),
     });
     const data = await response.json();
     if (!response.ok)
       throw Error(data.error || "Não foi possível concluir a pesquisa.");
-    report = data;
+    report =
+      typeof persistReport === "function" ? await persistReport(data) : data;
     history.unshift(report);
     history = history.slice(0, 12);
     $("filter").value = "";
@@ -527,6 +586,8 @@ document
   .querySelectorAll("[data-tab]")
   .forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
 $("new-search").addEventListener("click", () => {
+  $("domain-search").hidden = false;
+  $("company-panel").hidden = true;
   $("target").focus();
   $("search").scrollIntoView({ behavior: "smooth", block: "center" });
 });
