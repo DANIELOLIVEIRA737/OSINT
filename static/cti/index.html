@@ -6,10 +6,45 @@
     <title>Atlas + CTI · mapa de ameaças</title>
     <link rel="stylesheet" href="/cti/vendor/leaflet.css" />
     <link rel="stylesheet" href="/cti/styles.css" />
+    <link rel="stylesheet" href="/cti/design.css" />
   </head>
   <body class="shell" data-map-layer="urlhaus" data-arcs="0">
+    <aside class="cti-sidebar">
+      <a class="suite-brand" href="/"
+        ><span class="suite-mark">A</span
+        ><span>atlas<small>INTELLIGENCE WORKSPACE</small></span></a
+      >
+      <div class="suite-workspace">
+        <span>W</span>
+        <div>O meu workspace<small>Informação de fontes abertas</small></div>
+      </div>
+      <p class="nav-section">WORKSPACE</p>
+      <nav aria-label="Navegação principal">
+        <a href="/">⌕ <span>Investigação OSINT</span></a
+        ><a class="selected" href="/cti/" aria-current="page"
+          >◎ <span>Observatório CTI</span><b>3</b></a
+        ><a href="/#projects" id="open-atlas-projects"
+          >▣ <span>Projetos & evidências</span></a
+        >
+      </nav>
+      <section class="source-health">
+        <p class="nav-section">COBERTURA DAS FONTES</p>
+        <div id="source-health-list">
+          <p class="health-wait">A consultar as fontes…</p>
+        </div>
+      </section>
+      <div class="suite-bottom">
+        <span class="suite-shield">◇</span
+        ><strong>Evidências, não suposições.</strong>
+        <p>
+          País de registo ≠ localização de um ataque. Cada indicador mantém a
+          sua fonte.
+        </p>
+        <div>ATLAS + CTI <span>PUBLIC INTELLIGENCE</span></div>
+      </div>
+    </aside>
     <nav class="atlas-bridge" aria-label="Atlas e CTI">
-      <a class="atlas-home" href="/">◈ ATLAS <span>INVESTIGAÇÃO</span></a
+      <a class="atlas-home" href="/">Workspace <span>/</span></a
       ><strong>CTI · mapa & feeds</strong
       ><label for="cti-project">Projeto</label
       ><select id="cti-project">
@@ -19,22 +54,25 @@
     </nav>
     <header class="hud">
       <div class="brand">
-        <p class="eyebrow">Só leitura · feeds públicos</p>
-        <h1>CTI</h1>
+        <p class="eyebrow">CYBER THREAT INTELLIGENCE</p>
+        <h1>Uma perspetiva global.</h1>
+        <p class="page-subtitle">
+          Explora indicadores públicos. Liga o contexto à investigação.
+        </p>
       </div>
       <label class="search">
         <span class="sr-only">Filtrar listas; código de país abre o card</span>
         <input
           id="q"
           type="search"
-          placeholder="Filtrar lista: CVE, URL, país, fonte"
+          placeholder="Pesquisar indicadores, CVEs, países ou fontes…"
           autocomplete="off"
         />
       </label>
       <div class="kpis" aria-label="Indicadores do feed">
         <div class="kpi">
           <span class="kpi-n" id="kpi-kev">—</span>
-          <span class="kpi-l">KEV</span>
+          <span class="kpi-l">CVE NO CATÁLOGO</span>
         </div>
         <div class="kpi">
           <span class="kpi-n" id="kpi-hosts">—</span>
@@ -42,7 +80,7 @@
         </div>
         <div class="kpi">
           <span class="kpi-n" id="kpi-countries">—</span>
-          <span class="kpi-l">Países</span>
+          <span class="kpi-l">PAÍSES OBSERVADOS</span>
         </div>
       </div>
       <div class="toolbar">
@@ -294,11 +332,67 @@
           <ul id="country-iocs" class="country-iocs"></ul>
         </aside>
         <div id="world-map" data-pin-count="0" data-selected=""></div>
-        <ul id="map-pins"></ul>
+        <div class="map-tools" aria-label="Controlos do mapa">
+          <button
+            type="button"
+            class="btn"
+            id="map-home"
+            title="Repor vista mundial"
+            aria-label="Repor vista mundial"
+          >
+            ◎</button
+          ><button
+            type="button"
+            class="btn"
+            id="map-expand"
+            aria-label="Expandir mapa"
+            aria-pressed="false"
+          >
+            ⛶</button
+          ><button
+            type="button"
+            class="btn"
+            id="map-tiles"
+            aria-label="Ativar base OpenStreetMap"
+            aria-pressed="false"
+          >
+            OSM
+          </button>
+        </div>
+        <div class="map-empty" id="map-empty" hidden>
+          <span>◎</span><strong>Sem cobertura geográfica nesta camada</strong>
+          <p id="map-empty-message">
+            Os países só são destacados quando há dados nas fontes.
+          </p>
+        </div>
+        <div class="map-footer">
+          <span class="map-footer-label">PAÍSES NESTA CAMADA</span>
+          <ul id="map-pins"></ul>
+          <span id="map-coverage" class="map-coverage">A obter contexto…</span>
+        </div>
       </section>
 
-      <aside class="rail">
-        <section class="panel panel-news" aria-labelledby="news-title">
+      <aside class="rail" aria-label="Explorador de indicadores">
+        <div class="rail-heading">
+          <div>
+            <span class="eyebrow">INTELLIGENCE EXPLORER</span>
+            <h2>Fontes & indicadores</h2>
+          </div>
+          <span class="feed-health" id="feed-health">— / 5</span>
+        </div>
+        <div class="feed-tabs" role="group" aria-label="Selecionar fonte">
+          <button data-feed-tab="urlhaus" aria-pressed="true" class="selected">
+            URLhaus</button
+          ><button data-feed-tab="dshield" aria-pressed="false">DShield</button
+          ><button data-feed-tab="feodo" aria-pressed="false">Feodo</button
+          ><button data-feed-tab="kev" aria-pressed="false">KEV</button
+          ><button data-feed-tab="news" aria-pressed="false">Notícias</button>
+        </div>
+        <section
+          id="panel-news"
+          class="panel panel-news"
+          aria-labelledby="news-title"
+        >
           <header>
             <div class="panel-head">
               <h2 id="news-title">Última hora</h2>
@@ -310,7 +404,7 @@
           </header>
           <div id="news-list" class="list"></div>
         </section>
-        <section class="panel" aria-labelledby="kev-title">
+        <section id="panel-kev" class="panel" aria-labelledby="kev-title">
           <header>
             <div class="panel-head">
               <h2 id="kev-title">CISA KEV</h2>
@@ -389,5 +483,6 @@
     <script src="/cti/vendor/leaflet.js"></script>
     <script src="/cti/app.js"></script>
     <script src="/cti/bridge.js"></script>
+    <script src="/cti/design.js"></script>
   </body>
 </html>

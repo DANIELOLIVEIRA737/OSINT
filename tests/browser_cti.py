@@ -77,6 +77,31 @@ with tempfile.TemporaryDirectory(prefix="atlas-cti-db-") as data:
                 page.locator("#world-map .leaflet-overlay-pane path").first
             ).to_be_visible()
             expect(page.locator("#cti-project")).to_have_value(project["id"])
+            page.locator("#open-atlas-projects").click()
+            expect(page.locator("#projects-dialog")).to_be_visible()
+            page.locator("#close-projects").click()
+            page.locator('a[href="/cti/"]').click()
+            expect(page.locator("#uh-list .card")).to_have_count(2)
+
+            expect(page.locator("#feed-health")).to_have_text("5 / 5")
+            page.screenshot(
+                path=str(OUTPUT / "observatory-desktop.png"), full_page=True
+            )
+            expect(page.locator("#world-map")).to_have_attribute(
+                "data-basemap", "vector"
+            )
+            page.locator("#map-expand").click()
+            expect(page.locator(".map-stage")).to_have_class("map-stage is-expanded")
+            page.keyboard.press("Escape")
+            expect(page.locator("#map-expand")).to_have_attribute(
+                "aria-pressed", "false"
+            )
+            page.locator("#map-tiles").click()
+            expect(page.locator("#world-map")).to_have_attribute("data-basemap", "osm")
+            page.locator("#map-tiles").click()
+            expect(page.locator("#world-map")).to_have_attribute(
+                "data-basemap", "vector"
+            )
             page.locator('[data-map-layer="dshield"][role="tab"]').click()
             expect(page.locator("body")).to_have_attribute("data-map-layer", "dshield")
             page.locator('[data-map-layer="feodo"][role="tab"]').click()
@@ -84,10 +109,19 @@ with tempfile.TemporaryDirectory(prefix="atlas-cti-db-") as data:
             page.locator("#settings-btn").click()
             page.locator('[data-theme="forest"]').click()
             expect(page.locator("html")).to_have_attribute("data-theme", "forest")
+            page.locator('[data-theme="night"]').click()
             page.locator("#settings-close").click()
             page.locator('[data-map-layer="urlhaus"][role="tab"]').click()
-            page.locator("#q").fill("PT")
+            expect(
+                page.locator('.country-count-marker[data-cc="PT"]')
+            ).to_have_attribute("data-count", "1")
+            page.locator('.country-count-marker[data-cc="PT"]').focus()
+            page.keyboard.press("Enter")
             expect(page.locator("#country-card")).to_have_attribute("data-open", "1")
+            page.locator("#map-home").click()
+            expect(page.locator("#country-card")).to_be_hidden()
+            page.locator("#q").fill("PT")
+            expect(page.locator("#country-card")).to_be_visible()
             with page.expect_download() as csv:
                 page.locator("#country-export").click()
             assert "193.136.2.10" in Path(csv.value.path()).read_text(
@@ -142,6 +176,7 @@ with tempfile.TemporaryDirectory(prefix="atlas-cti-db-") as data:
             )
             page.locator('a[href="/cti/"]').click()
             expect(page.locator("#kev-list .card")).to_have_count(2)
+            page.locator('[data-feed-tab="kev"]').click()
             page.locator("#kev-list .card").first.locator(".atlas-analyse").click()
             expect(page.locator("#report-title")).to_have_text("CVE-2024-0001")
             expect(page.locator('[data-name="threat_intelligence"]')).to_contain_text(
@@ -155,6 +190,53 @@ with tempfile.TemporaryDirectory(prefix="atlas-cti-db-") as data:
             assert page.evaluate(
                 "document.documentElement.scrollWidth<=innerWidth"
             ), "CTI mobile overflow"
+            page.locator('[data-feed-tab="news"]').click()
+            expect(page.locator("#panel-news")).to_be_visible()
+            expect(page.locator("#panel-urlhaus")).to_be_hidden()
+            page.set_viewport_size({"width": 320, "height": 740})
+            assert page.evaluate(
+                "document.documentElement.scrollWidth<=innerWidth"
+            ), "320px overflow"
+            # Source failures have an explicit empty state, not fabricated map activity.
+            unavailable = {
+                key: {
+                    "ok": False,
+                    "error": "Fixture: source unavailable",
+                    "total": 0,
+                    "items": [],
+                }
+                for key in ["kev", "urlhaus", "dshield", "feodo", "news"]
+            }
+            unavailable.update(
+                fetchedAt="2026-10-16T10:00:00Z",
+                map={"pins": [], "withGeo": 0, "withoutGeo": 0},
+                mapDshield={"pins": []},
+                mapFeodo={"pins": []},
+            )
+            page.route(
+                "**/api/cti/feed*",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(unavailable),
+                ),
+            )
+            page.locator("#refresh-btn").click()
+            expect(page.locator("#feed-health")).to_have_text("0 / 5")
+            expect(page.locator("#map-empty")).to_be_visible()
+            expect(page.locator("#map-empty-message")).to_contain_text("indisponível")
+            expect(page.locator("#world-map")).to_have_attribute("data-pin-count", "0")
+            page.locator("#map-expand").click()
+            expect(page.locator("#map-expand")).to_have_attribute(
+                "aria-pressed", "true"
+            )
+            page.keyboard.press("Escape")
+            page.set_viewport_size({"width": 1366, "height": 650})
+            page.locator(".map-footer").scroll_into_view_if_needed()
+            expect(page.locator(".map-footer")).to_be_in_viewport()
+            assert page.evaluate(
+                "document.documentElement.scrollWidth<=innerWidth"
+            ), "Short desktop overflow"
             assert not errors, errors
             for path in [
                 "/cti/../cti.py",

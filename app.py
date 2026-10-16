@@ -21,7 +21,7 @@ from workspace import Store, InstanceLock
 from intelligence import graph, compare
 from cti import CTIService, passive_identifier
 
-APP_BUILD = "atlas-cti-1"
+APP_BUILD = "atlas-observatory-2"
 ROOT = Path(__file__).parent
 POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 LIMIT = threading.BoundedSemaphore(4)
@@ -1067,6 +1067,8 @@ class Handler(BaseHTTPRequestHandler):
                 "/cti/app.js": ("cti/app.js", "text/javascript"),
                 "/cti/bridge.js": ("cti/bridge.js", "text/javascript"),
                 "/cti/styles.css": ("cti/styles.css", "text/css"),
+                "/cti/design.css": ("cti/design.css", "text/css"),
+                "/cti/design.js": ("cti/design.js", "text/javascript"),
                 "/cti/vendor/leaflet.js": ("cti/vendor/leaflet.js", "text/javascript"),
                 "/cti/vendor/leaflet.css": ("cti/vendor/leaflet.css", "text/css"),
                 "/cti/vendor/world.geojson": (

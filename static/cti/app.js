@@ -64,7 +64,9 @@
   };
 
   var leafletMap = null;
+  var tileLayer = null;
   var choroLayer = null;
+  var countryMarkers = null;
   var worldGeo = null;
   var worldWait = null;
   var mapGen = 0;
@@ -83,6 +85,7 @@
     if (n === 6 || n === 8 || n === 12) return n;
     return 8;
   }
+  var lastEnvelope = null;
   var lastKev = { ok: false, items: [] };
   var lastUh = { ok: false, items: [] };
   var lastDshield = { ok: false, items: [] };
@@ -134,18 +137,55 @@
     if (leafletMap || typeof L === "undefined") return;
     leafletMap = L.map(els.mapEl, {
       worldCopyJump: true,
-      minZoom: 2,
+      minZoom: 0.5,
+      zoomSnap: 0.25,
       maxZoom: 6,
       zoomControl: false,
-    }).setView([20, 10], 2);
+    }).setView([20, 10], 1.5);
     L.control.zoom({ position: "bottomleft" }).addTo(leafletMap);
-    els.mapEl.setAttribute("data-basemap", "osm");
+    els.mapEl.setAttribute("data-basemap", "vector");
     els.mapEl.classList.add("osm-dark");
-    L.tileLayer(osmTileUrl(), {
+    tileLayer = L.tileLayer(osmTileUrl(), {
       attribution: "&copy; OpenStreetMap contributors",
       maxZoom: 6,
-    }).addTo(leafletMap);
+      noWrap: true,
+    });
+    leafletMap.fitBounds(
+      [
+        [-55, -175],
+        [80, 175],
+      ],
+      { padding: [20, 20], animate: false },
+    );
+    window.dispatchEvent(new Event("cti-map-ready"));
   }
+
+  window.addEventListener("cti-map-control", function (event) {
+    if (!leafletMap) return;
+    if (event.detail === "home") {
+      clearCountryFilter();
+      leafletMap.fitBounds(
+        [
+          [-55, -175],
+          [80, 175],
+        ],
+        { padding: [20, 20], animate: !prefersReduce() },
+      );
+    }
+    if (event.detail === "resize")
+      setTimeout(function () {
+        leafletMap.invalidateSize();
+      }, 60);
+    if (event.detail === "tiles") {
+      if (leafletMap.hasLayer(tileLayer)) {
+        leafletMap.removeLayer(tileLayer);
+        els.mapEl.dataset.basemap = "vector";
+      } else {
+        tileLayer.addTo(leafletMap);
+        els.mapEl.dataset.basemap = "osm";
+      }
+    }
+  });
 
   function loadWorld() {
     if (worldGeo) return Promise.resolve(worldGeo);
@@ -161,10 +201,10 @@
             L.geoJSON(g, {
               interactive: false,
               style: {
-                fillColor: "#192333",
-                fillOpacity: 0.42,
-                color: "#516075",
-                opacity: 0.5,
+                fillColor: "#262b40",
+                fillOpacity: 0.85,
+                color: "#626680",
+                opacity: 0.65,
                 weight: 0.5,
                 className: "atlas-world-outline",
               },
@@ -184,8 +224,13 @@
 
   function choroColor(t) {
     var x = Math.max(0, Math.min(1, t));
-    var l = 58 - Math.round(x * 26);
-    return "hsl(38, 92%, " + l + "%)";
+    var hue =
+      currentMapLayer() === "dshield"
+        ? 264
+        : currentMapLayer() === "feodo"
+          ? 14
+          : 38;
+    return "hsl(" + hue + ", 78%, " + (72 - Math.round(x * 20)) + "%)";
   }
 
   function fmtTime(iso) {
@@ -561,6 +606,7 @@
       if (id === activeId) {
         el.classList.add("is-layer-focus");
         try {
+          if (document.body.classList.contains("design-v2")) return;
           el.scrollIntoView({
             block: "nearest",
             inline: "nearest",
@@ -1177,7 +1223,13 @@
     if (!leafletMap) return;
     if (!sel || !choroLayer) {
       if (lastFit) {
-        leafletMap.setView([20, 10], 2);
+        leafletMap.fitBounds(
+          [
+            [-55, -175],
+            [80, 175],
+          ],
+          { padding: [20, 20], animate: false },
+        );
         lastFit = "";
       }
       els.mapEl.setAttribute("data-focus", "");
@@ -1205,6 +1257,10 @@
     if (choroLayer && leafletMap) {
       leafletMap.removeLayer(choroLayer);
       choroLayer = null;
+    }
+    if (countryMarkers && leafletMap) {
+      leafletMap.removeLayer(countryMarkers);
+      countryMarkers = null;
     }
     var counts = Object.create(null);
     var max = 0;
@@ -1234,7 +1290,7 @@
           return {
             fillColor: choroColor(t),
             fillOpacity: dim ? 0.14 : 0.32 + 0.55 * t,
-            color: on ? "#fff6d4" : "#f3d48a",
+            color: on ? "#ffffff" : choroColor(0.2),
             weight: on ? 2.6 : 0.8,
             className:
               "choro" +
@@ -1263,6 +1319,42 @@
         },
       },
     ).addTo(leafletMap);
+    countryMarkers = L.layerGroup().addTo(leafletMap);
+    pins.forEach(function (pin) {
+      if (!Number.isFinite(pin.lat) || !Number.isFinite(pin.lng)) return;
+      const label =
+        pin.cc +
+        " · " +
+        pin.count +
+        " indicador(es). Centro do país de registo, não localização do host.";
+      const marker = L.circleMarker([pin.lat, pin.lng], {
+        radius: Math.min(13, 5 + Math.log2(pin.count + 1)),
+        color: choroColor(0.15),
+        fillColor: choroColor(0.75),
+        fillOpacity: 0.95,
+        weight: 1.5,
+        className: "country-count-marker",
+      });
+      marker.on("click", function () {
+        applyCountryFilter(pin.cc);
+      });
+      marker.on("add", function () {
+        const element = marker.getElement();
+        if (!element) return;
+        element.setAttribute("data-cc", pin.cc);
+        element.setAttribute("data-count", String(pin.count));
+        element.setAttribute("tabindex", "0");
+        element.setAttribute("role", "button");
+        element.setAttribute("aria-label", label);
+        element.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            applyCountryFilter(pin.cc);
+          }
+        });
+      });
+      marker.bindTooltip(label, { direction: "top" }).addTo(countryMarkers);
+    });
     setTimeout(function () {
       if (!choroLayer) return;
       var sel = selectedCountry(pins);
@@ -1399,7 +1491,26 @@
     moreBtn(els.feodoMore, fe);
     renderNews();
     renderMapFromFilter();
+    window.dispatchEvent(
+      new CustomEvent("cti-view", {
+        detail: {
+          ready: !!lastEnvelope,
+          layer: currentMapLayer(),
+          pins: activePins(),
+          map: layerBundle().map,
+          source: layerBundle().source,
+        },
+      }),
+    );
   }
+
+  window.addEventListener("cti-design-ready", function () {
+    if (lastEnvelope)
+      window.dispatchEvent(
+        new CustomEvent("cti-data", { detail: lastEnvelope }),
+      );
+    renderAll();
+  });
 
   var STORAGE_KEY = "cti.settings.v1";
   var autoTimer = null;
@@ -1907,6 +2018,7 @@
       var res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       var data = await res.json();
+      lastEnvelope = data;
       var errors = [];
       if (!data.kev || !data.kev.ok)
         errors.push((data.kev && data.kev.error) || "CISA KEV falhou.");
@@ -1985,7 +2097,7 @@
           "DShield: enrich ASN incompleto. Países em falta não são inventados.";
         bannerMsgs.push(enote);
         document.body.setAttribute("data-dshield-enrich", "partial");
-        showToast(enote);
+        // The persistent banner already explains incomplete enrichment.
       } else if (lastDshield.ok) {
         document.body.setAttribute("data-dshield-enrich", "ok");
       } else {
@@ -1997,9 +2109,14 @@
         lastKev.ok && lastUh.ok ? "1" : "0",
       );
       renderAll();
+      window.dispatchEvent(new CustomEvent("cti-data", { detail: data }));
       motion.ready = true;
       document.body.setAttribute("data-motion-ready", "1");
     } catch (e) {
+      lastEnvelope = { error: e.message };
+      window.dispatchEvent(
+        new CustomEvent("cti-data", { detail: lastEnvelope }),
+      );
       lastKev = { ok: false, error: e.message, items: [] };
       lastUh = { ok: false, error: e.message, items: [] };
       lastDshield = { ok: false, error: e.message, items: [] };

@@ -883,3 +883,5 @@ if (incomingIndicator) {
     }
   })();
 }
+
+if (location.hash === "#projects") openProjects();

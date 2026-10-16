@@ -4,12 +4,21 @@ Aplicação local de OSINT em português para domínios, sites, IPs públicos e 
 
 ![Interface do Atlas](docs/atlas-workspace.png)
 
+![Observatório CTI — captura com fixtures de teste](docs/cti-observatory.png)
+
+_A captura do Observatório usa as fixtures de teste do projeto; não representa dados em direto._
+
 ## Atlas e CTI na mesma aplicação
 
 Esta distribuição integra o teu [CTI original](https://github.com/DANIELOLIVEIRA737/cti) no Atlas, num único servidor Python e no mesmo arranque por `.bat`. Não é preciso instalar Node nem abrir dois servidores.
 
 - **CTI · mapa & feeds** no menu abre o dashboard original integrado: CISA KEV, URLhaus, SANS DShield, Feodo e notícias RSS.
-- Mantém as três camadas de mapa, filtros por país/IOC, paginação, CSV e definições de tema/densidade. Contornos geográficos locais permitem orientar o mapa mesmo se os tiles OSM falharem.
+- O **Observatório CTI** usa a mesma paleta escura/violeta, navegação e componentes do Atlas. Os temas alternativos continuam nas Definições.
+- O mapa usa uma **base vetorial local por defeito**, com contornos e marcadores agregados por país; não precisa de tiles externos para apresentar o contexto. O botão **OSM** ativa opcionalmente os tiles OpenStreetMap.
+- Controlos para recentrar, ampliar/reduzir e expandir/recolher o mapa. Escape recolhe a vista expandida; os marcadores e as camadas podem ser utilizados por teclado.
+- O explorador apresenta um feed de cada vez, com espaço para ler os indicadores e guardar evidências. Os separadores das três fontes geográficas acompanham a camada selecionada; KEV e notícias continuam sem localização inventada.
+- A barra lateral mostra a cobertura real das cinco fontes. Fontes indisponíveis e camadas sem países têm um estado explícito; não são substituídas por dados de demonstração.
+- Mantém filtros por país/IOC, paginação, CSV, projetos e definições. Os marcadores representam centros de países de registo, não coordenadas dos hosts.
 - **Analisar no Atlas** cria um relatório **passivo** de IP, hostname, URL ou CVE: compara as amostras dos feeds, sem resolver nem visitar o destino IOC. URLs IOC são texto, não links para os destinos.
 - **Guardar evidência** guarda a análise no projeto selecionado, com proveniência, notas e marcação da evidência. A seleção do projeto acompanha a navegação entre as duas vistas.
 - Numa pesquisa técnica normal, a opção **Cruzar alvo e IPs com URLhaus, DShield e Feodo** acrescenta o contexto CTI. A pesquisa técnica continua a fazer os pedidos HTTP/TLS habituais ao alvo; a análise iniciada no mapa é passiva.
@@ -125,6 +134,7 @@ node --check static/app.js
 node --check static/workspace.js
 node --check static/cti/app.js
 node --check static/cti/bridge.js
+node --check static/cti/design.js
 ```
 
 Os testes GUI opcionais estão em `tests/browser_smoke.py` e `tests/browser_cti.py`. O teste CTI exercita os parsers reais com as fixtures do projeto original, as três camadas, evidências partilhadas, análise passiva de IOCs/CVEs e a ausência de pedidos/links para os destinos IOC. O teste unitário de paridade dos parsers usa Node quando disponível; isso não é uma dependência da aplicação.
