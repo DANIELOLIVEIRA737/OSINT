@@ -8,3 +8,5 @@
 !integrations/
 !integrations/cti/
 !integrations/cti/**
+!deploy/
+!deploy/render_start.py

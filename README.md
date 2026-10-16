@@ -112,9 +112,10 @@ Os fornecedores recebem as consultas e têm termos próprios. Antes de comercial
 ## Segurança e configuração local
 
 Para alojar a aplicação completa, consulta [Publicação com Docker, HTTPS e acesso protegido](deploy/README.md).
+Para Render, usa o [Blueprint com disco persistente e autenticação](deploy/RENDER.md).
 Inclui armazenamento persistente; publicar o código no GitHub não publica o serviço.
 
-Por defeito o servidor escuta **apenas em `127.0.0.1`**, verifica o Host e rejeita submissões de outras origens. Não há contas de utilizador ou autenticação: destina-se ao teu computador. Não exponhas a pasta de dados nem o servidor publicamente sem autenticação, HTTPS e controlo de acesso num reverse proxy.
+Por defeito o servidor escuta **apenas em `127.0.0.1`**, verifica o Host e rejeita submissões de outras origens. O modo local não exige autenticação. Para acesso remoto, usa HTTPS e autenticação: o Blueprint Render ativa `ATLAS_REQUIRE_AUTH=1` e exige `ATLAS_PASSWORD` com pelo menos 16 caracteres. `ATLAS_ADMIN` define o utilizador (padrão `atlas`). Não há contas separadas: quem entra tem acesso ao workspace partilhado. Não exponhas a pasta de dados.
 
 Os destinos HTTP são validados como públicos, ligando ao IP validado com Host/SNI corretos, e os redirecionamentos são novamente verificados. Portas diferentes de 80/443, redes privadas/reservadas e URLs com credenciais são rejeitadas. Os documentos públicos não seguem redirecionamentos para outro site. A verificação TLS permanece ativa. Cookies recebidos não são guardados no relatório; alvos e relatórios não são escritos nos logs de pedidos.
 
@@ -126,6 +127,9 @@ Configuração opcional por variáveis de ambiente:
 | `ATLAS_DATA_DIR`     | Pasta `data` junto à aplicação; define uma pasta gravável para persistência              |
 | `ATLAS_HOST`         | `127.0.0.1` no arranque manual; o iniciador usa sempre loopback                          |
 | `ATLAS_ALLOW_REMOTE` | Apenas `1` permite Host remoto, para ambientes protegidos e configurados conscientemente |
+| `ATLAS_REQUIRE_AUTH` | `1` exige autenticação e recusa arrancar sem palavra-passe válida                        |
+| `ATLAS_ADMIN`        | `atlas`; utilizador para acesso protegido                                                |
+| `ATLAS_PASSWORD`     | Segredo definido no alojamento; mínimo de 16 caracteres com autenticação obrigatória     |
 
 Até quatro pesquisas podem decorrer em simultâneo, com oito workers partilhados e quatro workers na verificação limitada de subdomínios. Pedidos têm timeout de rede; o DNS do sistema depende do resolver do sistema operativo. Não há garantia de duração máxima.
 

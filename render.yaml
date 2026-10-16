@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: atlas-cti
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    numInstances: 1
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ATLAS_HOST
+        value: 0.0.0.0
+      - key: ATLAS_ALLOW_REMOTE
+        value: "1"
+      - key: ATLAS_REQUIRE_AUTH
+        value: "1"
+      - key: ATLAS_DATA_DIR
+        value: /data/atlas
+      - key: ATLAS_ADMIN
+        value: atlas
+      - key: ATLAS_PASSWORD
+        sync: false
+    disk:
+      name: atlas-data
+      mountPath: /data
+      sizeGB: 1

@@ -1,6 +1,9 @@
 """Public OSINT workbench. Python 3.12+, no third-party dependencies."""
 
 import concurrent.futures
+import base64
+import binascii
+import hmac
 import ipaddress
 import json
 import os
@@ -21,7 +24,7 @@ from workspace import Store, InstanceLock
 from intelligence import graph, compare
 from cti import CTIService, passive_identifier
 
-APP_BUILD = "atlas-observatory-2"
+APP_BUILD = "atlas-render-1"
 ROOT = Path(__file__).parent
 POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 LIMIT = threading.BoundedSemaphore(4)
@@ -1006,6 +1009,8 @@ class Handler(BaseHTTPRequestHandler):
             ),
         )
         self.send_header("Cache-Control", "no-store")
+        if status == 401:
+            self.send_header("WWW-Authenticate", 'Basic realm="Atlas", charset="UTF-8"')
         self.end_headers()
         self.wfile.write(body)
 
@@ -1022,7 +1027,33 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return False
 
+    def authenticated(self):
+        password = os.environ.get("ATLAS_PASSWORD", "")
+        required = os.environ.get("ATLAS_REQUIRE_AUTH") == "1"
+        if not password and not required:
+            return True
+        if not password:
+            return False
+        try:
+            scheme, encoded = self.headers.get("Authorization", "").split(" ", 1)
+            if scheme.lower() != "basic":
+                return False
+            credentials = base64.b64decode(encoded, validate=True)
+            username, supplied = credentials.split(b":", 1)
+            expected_user = os.environ.get("ATLAS_ADMIN", "atlas").encode("utf-8")
+            return hmac.compare_digest(username, expected_user) & hmac.compare_digest(
+                supplied, password.encode("utf-8")
+            )
+        except (ValueError, binascii.Error):
+            return False
+
     def do_GET(self):
+        # Render probes this endpoint without credentials; it contains no workspace data.
+        if (
+            urllib.parse.urlsplit(self.path).path != "/health"
+            and not self.authenticated()
+        ):
+            return self.json(401, {"error": "Autenticação necessária."})
         if not self.allowed_host():
             return self.json(403, {"error": "Acesso local apenas."})
         path = urllib.parse.urlsplit(self.path).path
@@ -1094,6 +1125,8 @@ class Handler(BaseHTTPRequestHandler):
             self.json(500, {"error": "Não foi possível ler os dados locais."})
 
     def do_POST(self):
+        if not self.authenticated():
+            return self.json(401, {"error": "Autenticação necessária."})
         origin = self.headers.get("Origin")
         host = self.headers.get("Host", "")
         if origin and origin not in ("http://" + host, "https://" + host):
@@ -1263,6 +1296,12 @@ def monitor_loop(stop):
 
 
 def serve(host=None, port=None, ready=None):
+    if os.environ.get("ATLAS_REQUIRE_AUTH") == "1":
+        if len(os.environ.get("ATLAS_PASSWORD", "")) < 16:
+            raise ValueError("ATLAS_PASSWORD tem de ter pelo menos 16 caracteres.")
+        username = os.environ.get("ATLAS_ADMIN", "atlas")
+        if not username or ":" in username or any(ord(c) < 32 for c in username):
+            raise ValueError("ATLAS_ADMIN inválido.")
     host = host or os.environ.get("ATLAS_HOST", "127.0.0.1")
     port = port if port is not None else int(os.environ.get("PORT", "8000"))
     database = store()

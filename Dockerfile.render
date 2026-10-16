@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    ATLAS_HOST=0.0.0.0 PORT=10000 ATLAS_DATA_DIR=/data/atlas
+WORKDIR /app
+RUN groupadd --gid 10001 atlas && useradd --uid 10001 --gid atlas atlas
+COPY app.py workspace.py intelligence.py cti.py ./
+COPY static ./static
+COPY integrations/cti ./integrations/cti
+COPY deploy/render_start.py ./render_start.py
+RUN chmod -R a+rX /app
+CMD ["python", "render_start.py"]
