@@ -1,0 +1,5 @@
+[
+  {"ip":"80.0.0.50","attacks":120,"count":9000,"firstseen":"2026-01-10","lastseen":"2026-09-01"},
+  {"ip":"193.136.2.20","attacks":80,"count":4000,"firstseen":"2026-02-01","lastseen":"2026-09-02"},
+  {"ip":"203.0.113.1","attacks":15,"count":200,"firstseen":"2026-03-01","lastseen":"2026-08-20"}
+]

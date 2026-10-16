@@ -1,8 +1,24 @@
-# Atlas 03 — Intelligence Workspace
+# Atlas + CTI — Intelligence Workspace
 
 Aplicação local de OSINT em português para domínios, sites, IPs públicos e empresas. Mapa interativo de relações, subdomínios verificados, projetos persistentes, comparação temporal, monitorização e relatórios. **Python 3.12+, sem dependências de execução externas.**
 
 ![Interface do Atlas](docs/atlas-workspace.png)
+
+## Atlas e CTI na mesma aplicação
+
+Esta distribuição integra o teu [CTI original](https://github.com/DANIELOLIVEIRA737/cti) no Atlas, num único servidor Python e no mesmo arranque por `.bat`. Não é preciso instalar Node nem abrir dois servidores.
+
+- **CTI · mapa & feeds** no menu abre o dashboard original integrado: CISA KEV, URLhaus, SANS DShield, Feodo e notícias RSS.
+- Mantém as três camadas de mapa, filtros por país/IOC, paginação, CSV e definições de tema/densidade. Contornos geográficos locais permitem orientar o mapa mesmo se os tiles OSM falharem.
+- **Analisar no Atlas** cria um relatório **passivo** de IP, hostname, URL ou CVE: compara as amostras dos feeds, sem resolver nem visitar o destino IOC. URLs IOC são texto, não links para os destinos.
+- **Guardar evidência** guarda a análise no projeto selecionado, com proveniência, notas e marcação da evidência. A seleção do projeto acompanha a navegação entre as duas vistas.
+- Numa pesquisa técnica normal, a opção **Cruzar alvo e IPs com URLhaus, DShield e Feodo** acrescenta o contexto CTI. A pesquisa técnica continua a fazer os pedidos HTTP/TLS habituais ao alvo; a análise iniciada no mapa é passiva.
+- Os relatórios CTI participam no mapa de relações, exportação JSON/PDF, notas e comparação. Na comparação, só se confrontam feeds disponíveis nas duas observações; falhas de fontes são apresentadas como redução de cobertura.
+- Uma correspondência numa lista pública é uma observação contextual, não prova de comprometimento ou de propriedade comum. Ausência na amostra não confirma segurança. Uma CVE no KEV não confirma que um site seja vulnerável.
+
+**Distribuição local:** a integração foi feita neste repositório OSINT. O repositório CTI original e o site publicado em Cloudflare não são alterados por este pacote; não foi feito deploy para a conta Cloudflare. O backend Python/SQLite não é diretamente executável como um Worker. Para distribuição web, é necessário adaptar o backend e a persistência ao alojamento escolhido.
+
+Os assets, dados RIR, fixtures e parsers de referência vêm do commit `ece2a175d6e837a9473031173cc2f4ccada06ced`. Proveniência e atribuições em [integrations/cti/UPSTREAM.md](integrations/cti/UPSTREAM.md).
 
 ## Windows: iniciar com dois cliques
 
@@ -10,7 +26,7 @@ Aplicação local de OSINT em português para domínios, sites, IPs públicos e 
 2. Se ainda não tens Python, instala **Python 3.12 ou superior**, de [python.org](https://www.python.org/downloads/). Marca **Add Python to PATH**. Só precisas de fazer isto uma vez.
 3. Abre a pasta extraída e faz duplo clique em **`Iniciar Atlas.bat`**.
 
-O iniciador procura Python compatível, inicia o servidor e abre o navegador automaticamente. Se já existir um Atlas 03 na porta configurada, abre essa instância; se outra aplicação ocupar a porta, escolhe uma livre. Mantém a janela do servidor aberta. **Ctrl+C** termina a aplicação e as monitorizações; os projetos continuam guardados.
+O iniciador procura Python compatível, inicia o servidor e abre o navegador automaticamente. Ao atualizar, termina a versão antiga com Ctrl+C antes de iniciar; o iniciador deteta uma instância de outra versão e explica como reiniciar. Se já existir um Atlas 03 na porta configurada, abre essa instância; se outra aplicação ocupar a porta, escolhe uma livre. Mantém a janela do servidor aberta. **Ctrl+C** termina a aplicação e as monitorizações; os projetos continuam guardados.
 
 Se não houver Python compatível, o `.bat` explica o requisito e abre a página oficial de download. Não instala software silenciosamente, não precisa de administrador e não altera o arranque do Windows. O `.bat` foi verificado estruturalmente e o iniciador Python foi testado; a execução nativa do `.bat` ainda não foi validada num Windows real.
 
@@ -70,6 +86,12 @@ A comparação:
 
 Respostas JSON válidas têm cache em memória de 5 minutos; o bootstrap IANA tem 24 horas. Até 64 entradas e aproximadamente 32 MiB de corpos de resposta são retidos. Falhas e JSON truncado não são guardados em cache. Proveniência mostra URL, data de obtenção e utilização de cache. Usa **Atualizar fontes em cache** para ignorá-la numa pesquisa manual. HTTP/TLS diretos e a descoberta HackerTarget são consultados de novo. Limites dos fornecedores são mostrados como erros; não se insiste automaticamente em pedidos recusados.
 
+Fontes HTTPS adicionais do CTI: `www.cisa.gov`, `urlhaus.abuse.ch`, `isc.sans.edu`, `feodotracker.abuse.ch`, `www.bleepingcomputer.com`, `krebsonsecurity.com`. O mapa pode usar `tile.openstreetmap.org`; os contornos geográficos estão incluídos localmente.
+
+Os feeds CTI têm cache de 5 minutos. O botão Atualizar pode renovar após um intervalo mínimo de 30 segundos. Corpos de feeds são limitados a 10 MiB. DShield enriquece até 40 IPs com concorrência máxima 5 e interrompe novos pedidos de enriquecimento após HTTP 429. País DShield é do ASN; países URLhaus/Feodo são alocações RIR do dataset incluído, não GPS ou tráfego em direto. Apenas os IPs literais dos feeds são mapeados, sem resolver os hostnames. As amostras são limitadas a 300/40/300 itens em URLhaus/DShield/Feodo.
+
+**Licenças CTI:** o DShield indica termos CC BY-NC-SA, com atribuição e uso não comercial; URLhaus e Feodo seguem os termos abuse.ch. A integração não transforma esses dados num produto de dados livre para comercializar. Leaflet mantém a licença BSD e a atribuição OSM é conservada.
+
 Fontes HTTPS necessárias: `dns.google`, `ipwho.is`, `data.iana.org`, `crt.sh`, `web.archive.org`, `api.hackertarget.com`, `www.wikidata.org`, `api.gleif.org` e o serviço RDAP oficial selecionado no bootstrap IANA. A inspeção de sites requer DNS e saída TCP direta 80/443 para o alvo.
 
 Um cabeçalho ausente não confirma vulnerabilidade. A presença de um cabeçalho não garante uma política eficaz. DMARC pode ser herdado; um domínio pode não enviar correio. Localização IP é aproximada e não identifica uma pessoa ou morada. Certificados históricos não provam atividade atual. RDAP pode ocultar campos e não ter registo para subdomínios. A amostra do Internet Archive é de até 40 URLs e não é necessariamente recente.
@@ -101,9 +123,13 @@ Até quatro pesquisas podem decorrer em simultâneo, com oito workers partilhado
 python3 -m unittest discover -s tests -v
 node --check static/app.js
 node --check static/workspace.js
+node --check static/cti/app.js
+node --check static/cti/bridge.js
 ```
 
-O teste GUI opcional está em `tests/browser_smoke.py`. Usa Playwright e Chromium apenas para desenvolvimento (não são dependências da aplicação). Prepara-os no teu ambiente de testes e executa `python3 tests/browser_smoke.py`. O script inicia um servidor e uma base de dados temporários próprios; não toca nos teus projetos. `CHROMIUM_PATH` permite indicar um executável Chromium e `ATLAS_BROWSER_OUTPUT` a pasta dos screenshots/PDFs.
+Os testes GUI opcionais estão em `tests/browser_smoke.py` e `tests/browser_cti.py`. O teste CTI exercita os parsers reais com as fixtures do projeto original, as três camadas, evidências partilhadas, análise passiva de IOCs/CVEs e a ausência de pedidos/links para os destinos IOC. O teste unitário de paridade dos parsers usa Node quando disponível; isso não é uma dependência da aplicação.
+
+O teste GUI geral está em `tests/browser_smoke.py`. Usa Playwright e Chromium apenas para desenvolvimento (não são dependências da aplicação). Prepara-os no teu ambiente de testes e executa `python3 tests/browser_smoke.py`. O script inicia um servidor e uma base de dados temporários próprios; não toca nos teus projetos. `CHROMIUM_PATH` permite indicar um executável Chromium e `ATLAS_BROWSER_OUTPUT` a pasta dos screenshots/PDFs.
 
 Os testes cobrem parsers, API, bloqueio de redes privadas/origens/Host, cache, fontes com respostas controladas, mapa, comparação, persistência SQLite, notas/evidências, eliminação em cascata, agendamento, execução de monitorizações e iniciador Python. Os fluxos GUI foram exercitados em Chromium, incluindo projetos reais em SQLite, recarregamento, comparação, empresas, subdomínios, mapa, exportações JSON/PDF e layout móvel. As respostas externas nos testes GUI são fixtures explícitas.
 

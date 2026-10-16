@@ -38,6 +38,11 @@ document
   .querySelectorAll("[data-icon]")
   .forEach((n) => n.append(icon(n.dataset.icon)));
 const modules = {
+  threat_intelligence: {
+    title: "Contexto CTI · indicadores públicos",
+    group: "footprint",
+    icon: "shield",
+  },
   subdomains: {
     title: "Subdomínios e atividade",
     group: "infra",
@@ -81,6 +86,18 @@ const modules = {
   },
 };
 const labels = {
+  matches: "Correspondências observadas",
+  sources_checked: "Cobertura das fontes",
+  checked_targets: "Alvos comparados",
+  observed_at: "Consulta das fontes",
+  assessment: "Avaliação",
+  sample_size: "Tamanho da amostra",
+  available: "Fonte disponível",
+  observedAt: "Fonte obtida em",
+  ioc: "Indicador (texto, sem visitar)",
+  sourceLabel: "Fonte",
+  detailUrl: "Ficha na fonte",
+  sourceUrl: "Fonte oficial",
   hosts: "Subdomínios verificados",
   host: "Nome",
   dns_state: "Estado DNS",
@@ -221,7 +238,7 @@ function safeLink(value) {
     return false;
   }
 }
-function valueNode(value, depth = 0) {
+function valueNode(value, depth = 0, links = true) {
   const node = el("div");
   if (value === null || value === undefined || value === "") {
     node.append(el("span", "Não disponível", "data-empty"));
@@ -247,18 +264,18 @@ function valueNode(value, depth = 0) {
     const list = el("ul", undefined, "object-list");
     for (const item of value) {
       const li = el("li");
-      li.append(valueNode(item, depth + 1));
+      li.append(valueNode(item, depth + 1, links));
       list.append(li);
     }
     node.append(list);
     return node;
   }
   if (typeof value === "object") {
-    node.append(dataList(value, depth + 1));
+    node.append(dataList(value, depth + 1, links));
     return node;
   }
   const text = String(value);
-  if (safeLink(text)) {
+  if (links && safeLink(text)) {
     const a = el("a", text);
     a.href = text;
     a.target = "_blank";
@@ -267,7 +284,7 @@ function valueNode(value, depth = 0) {
   } else node.textContent = text;
   return node;
 }
-function dataList(data, depth = 0) {
+function dataList(data, depth = 0, links = true) {
   const dl = el("dl", undefined, "data-list");
   for (const [key, value] of Object.entries(data)) {
     const row = el("div", undefined, "data-row");
@@ -275,7 +292,7 @@ function dataList(data, depth = 0) {
     if (key === "excerpt") {
       dd.append(el("pre", String(value), "pre-text"));
     } else {
-      dd.append(valueNode(value, depth));
+      dd.append(valueNode(value, depth, links && key !== "ioc"));
     }
     row.append(el("dt", labels[key] || key), dd);
     dl.append(row);
@@ -423,7 +440,7 @@ function render() {
     $("cards").append(renderCard(name, result));
   $("report-title").textContent = report.target;
   $("report-date").textContent =
-    `${new Date(report.created_at).toLocaleString("pt-PT")} · ${report.mode === "deep" ? "Pesquisa aprofundada" : report.mode === "company" ? "Pesquisa empresarial" : "Pesquisa essencial"} · ${((report.duration_ms || 0) / 1000).toFixed(1)}s`;
+    `${new Date(report.created_at).toLocaleString("pt-PT")} · ${report.mode === "deep" ? "Pesquisa aprofundada" : report.mode === "cti" ? "Análise CTI passiva" : report.mode === "company" ? "Pesquisa empresarial" : "Pesquisa essencial"} · ${((report.duration_ms || 0) / 1000).toFixed(1)}s`;
   $("metric-sources").textContent = `${completed}/${total}`;
   $("metric-status").textContent =
     completed === total
@@ -547,6 +564,7 @@ $("search").addEventListener("submit", async (e) => {
         deep,
         expand: deep,
         refresh: $("fresh-search").checked,
+        cti: $("cti-check").checked,
       }),
     });
     const data = await response.json();

@@ -1,0 +1,8 @@
+################################################################
+# abuse.ch URLhaus Database Dump (CSV - recent URLs only)      #
+# Last updated: 2026-09-02 12:00:00 (UTC)
+################################################################
+#
+# id,dateadded,url,url_status,last_online,threat,tags,urlhaus_link,reporter
+"2","2026-09-02 11:00:00","http://193.136.2.10/ioc","offline","","malware_download","None","https://urlhaus.abuse.ch/url/2/","tester"
+"1","2026-09-02 12:00:00","http://malware.example.invalid/a","online","2026-09-02 12:00:00","malware_download","mirai","https://urlhaus.abuse.ch/url/1/","tester"

@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atlas + CTI · mapa de ameaças</title>
+    <link rel="stylesheet" href="/cti/vendor/leaflet.css" />
+    <link rel="stylesheet" href="/cti/styles.css" />
+  </head>
+  <body class="shell" data-map-layer="urlhaus" data-arcs="0">
+    <nav class="atlas-bridge" aria-label="Atlas e CTI">
+      <a class="atlas-home" href="/">◈ ATLAS <span>INVESTIGAÇÃO</span></a
+      ><strong>CTI · mapa & feeds</strong
+      ><label for="cti-project">Projeto</label
+      ><select id="cti-project">
+        <option value="">Pesquisa avulsa</option></select
+      ><a href="/">Projetos & relatórios ↗</a
+      ><span id="cti-save-status" role="status" aria-live="polite"></span>
+    </nav>
+    <header class="hud">
+      <div class="brand">
+        <p class="eyebrow">Só leitura · feeds públicos</p>
+        <h1>CTI</h1>
+      </div>
+      <label class="search">
+        <span class="sr-only">Filtrar listas; código de país abre o card</span>
+        <input
+          id="q"
+          type="search"
+          placeholder="Filtrar lista: CVE, URL, país, fonte"
+          autocomplete="off"
+        />
+      </label>
+      <div class="kpis" aria-label="Indicadores do feed">
+        <div class="kpi">
+          <span class="kpi-n" id="kpi-kev">—</span>
+          <span class="kpi-l">KEV</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-n" id="kpi-hosts">—</span>
+          <span class="kpi-l" id="kpi-hosts-label">Hosts pintados</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-n" id="kpi-countries">—</span>
+          <span class="kpi-l">Países</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <p
+          id="refresh-status"
+          class="refresh-status"
+          hidden
+          data-state="idle"
+          aria-live="polite"
+        >
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="refresh-label">A actualizar…</span>
+        </p>
+        <p id="clock" class="clock">A carregar…</p>
+        <button
+          type="button"
+          class="btn"
+          id="settings-btn"
+          aria-haspopup="dialog"
+          aria-controls="settings-panel"
+        >
+          Definições
+        </button>
+        <button type="button" class="btn" id="refresh-btn">Actualizar</button>
+      </div>
+    </header>
+
+    <div id="settings-backdrop" class="settings-backdrop" hidden></div>
+    <aside
+      id="settings-panel"
+      class="settings-panel"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
+    >
+      <header class="settings-head">
+        <h2 id="settings-title">Definições</h2>
+        <button type="button" class="btn btn-ghost" id="settings-close">
+          Fechar
+        </button>
+      </header>
+      <section class="settings-block">
+        <h3>Cores do site</h3>
+        <p class="hint">Preset visual · guardado neste browser</p>
+        <div
+          class="theme-grid"
+          id="theme-grid"
+          role="radiogroup"
+          aria-label="Tema de cores"
+        >
+          <button
+            type="button"
+            class="theme-swatch"
+            data-theme="night"
+            aria-pressed="true"
+          >
+            Night
+          </button>
+          <button
+            type="button"
+            class="theme-swatch"
+            data-theme="slate"
+            aria-pressed="false"
+          >
+            Slate
+          </button>
+          <button
+            type="button"
+            class="theme-swatch"
+            data-theme="forest"
+            aria-pressed="false"
+          >
+            Forest
+          </button>
+          <button
+            type="button"
+            class="theme-swatch"
+            data-theme="sand"
+            aria-pressed="false"
+          >
+            Sand
+          </button>
+        </div>
+      </section>
+      <section class="settings-block">
+        <h3>Auto-país</h3>
+        <p class="hint">
+          Abre um país aleatório entre os pins da
+          <strong>camada activa</strong> do mapa (URLhaus RIR, DShield ASN ou
+          Feodo C2). Não inventa países vazios. Continua com reduced-motion (é
+          navegação).
+        </p>
+        <label class="toggle">
+          <input type="checkbox" id="auto-country" />
+          <span>Rodar países automaticamente</span>
+        </label>
+        <div class="settings-row">
+          <label for="auto-interval">Intervalo</label>
+          <select id="auto-interval" aria-label="Intervalo do auto-país">
+            <option value="5">5 s</option>
+            <option value="10" selected>10 s</option>
+            <option value="30">30 s</option>
+          </select>
+        </div>
+        <p class="hint" id="auto-status">Desligado</p>
+        <p class="hint">Histórico de países</p>
+        <p class="hint">
+          Cliques no mapa e auto-país · clicar um código reabre o card
+        </p>
+        <p
+          id="auto-history"
+          class="auto-history"
+          data-count="0"
+          aria-label="Histórico de países"
+        >
+          —
+        </p>
+      </section>
+      <section class="settings-block">
+        <h3>Motion ornamental</h3>
+        <p class="hint">
+          Re-ênfase / pulses após Actualizar. Delta real (`is-new`) mantém-se.
+        </p>
+        <label class="toggle">
+          <input type="checkbox" id="motion-ornamental" checked />
+          <span>Re-ênfase ao actualizar</span>
+        </label>
+      </section>
+      <section class="settings-block">
+        <h3>Densidade</h3>
+        <p class="hint">Listas e cartões mais apertados na calha.</p>
+        <label class="toggle">
+          <input type="checkbox" id="density-compact" />
+          <span>Listas compactas</span>
+        </label>
+      </section>
+      <section class="settings-block">
+        <h3>Chips no mapa</h3>
+        <p class="hint">
+          Quantos países no topo da barra de chips (e na re-ênfase).
+        </p>
+        <div class="settings-row">
+          <label for="chip-top">Topo</label>
+          <select id="chip-top" aria-label="Número de chips no topo">
+            <option value="6">6</option>
+            <option value="8" selected>8</option>
+            <option value="12">12</option>
+          </select>
+        </div>
+      </section>
+      <section class="settings-block">
+        <h3>Atalhos</h3>
+        <p class="hint">
+          Esc fecha definições (ou limpa o filtro de país).
+          <kbd>R</kbd> Actualizar · <kbd>S</kbd> Definições ·
+          <kbd>/</kbd> pesquisa · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> camadas
+          URLhaus/DShield/Feodo (fora de campos).
+        </p>
+        <button type="button" class="btn" id="settings-reset">
+          Repor defaults
+        </button>
+      </section>
+    </aside>
+
+    <p class="banner" id="error-banner" hidden role="alert"></p>
+
+    <div class="workspace">
+      <section class="map-stage" aria-labelledby="map-title">
+        <div class="map-hud">
+          <div class="hud-card">
+            <h2 id="map-title">País de alocação RIR</h2>
+            <div
+              class="map-layers"
+              id="map-layers"
+              role="tablist"
+              aria-label="Camada do mapa"
+            >
+              <button
+                type="button"
+                class="layer-btn"
+                role="tab"
+                data-map-layer="urlhaus"
+                aria-selected="true"
+              >
+                URLhaus RIR
+              </button>
+              <button
+                type="button"
+                class="layer-btn"
+                role="tab"
+                data-map-layer="dshield"
+                aria-selected="false"
+              >
+                DShield ASN
+              </button>
+              <button
+                type="button"
+                class="layer-btn"
+                role="tab"
+                data-map-layer="feodo"
+                aria-selected="false"
+              >
+                Feodo C2
+              </button>
+            </div>
+            <p class="disclaimer" id="disclaimer">
+              Cor = quantidade de hosts URLhaus nesse país RIR — não ataques
+              neste segundo, sem arcos.
+            </p>
+            <p id="layer-badge" class="layer-badge" aria-live="polite">
+              Camada: URLhaus · RIR
+            </p>
+            <div id="choro-legend" hidden></div>
+            <p id="hud-refresh" class="hud-refresh" hidden>
+              A actualizar feeds…
+            </p>
+            <p id="map-meta" class="sr-only">A carregar o mapa…</p>
+          </div>
+        </div>
+        <aside
+          id="country-card"
+          class="country-card"
+          hidden
+          data-cc=""
+          data-open="0"
+        >
+          <header class="country-head">
+            <div>
+              <p class="eyebrow" id="country-filter">País seleccionado</p>
+              <h2 id="country-name">—</h2>
+              <p class="country-iso" id="country-cc"></p>
+            </div>
+            <div class="country-actions">
+              <button type="button" class="btn btn-ghost" id="country-export">
+                Exportar CSV
+              </button>
+              <button type="button" class="btn btn-ghost" id="country-clear">
+                Limpar
+              </button>
+            </div>
+          </header>
+          <p class="country-stat">
+            <span id="country-hosts">0</span> hosts URLhaus · IOCs no recorte ·
+            <span id="country-kev">KEV sem geo RIR</span>
+          </p>
+          <div id="country-tags" class="country-tags" hidden></div>
+          <p class="country-iocs-label">IOCs neste país</p>
+          <ul id="country-iocs" class="country-iocs"></ul>
+        </aside>
+        <div id="world-map" data-pin-count="0" data-selected=""></div>
+        <ul id="map-pins"></ul>
+      </section>
+
+      <aside class="rail">
+        <section class="panel panel-news" aria-labelledby="news-title">
+          <header>
+            <div class="panel-head">
+              <h2 id="news-title">Última hora</h2>
+              <span id="news-n" class="count">—</span>
+            </div>
+            <p class="hint" id="news-hint">
+              RSS públicos · só título e link original
+            </p>
+          </header>
+          <div id="news-list" class="list"></div>
+        </section>
+        <section class="panel" aria-labelledby="kev-title">
+          <header>
+            <div class="panel-head">
+              <h2 id="kev-title">CISA KEV</h2>
+              <span id="kev-n" class="count">—</span>
+            </div>
+            <p class="hint">CVE · vendor · data · clique copia o IOC</p>
+          </header>
+          <div id="kev-list" class="list"></div>
+          <button type="button" class="btn btn-more" id="kev-more" hidden>
+            Mostrar mais
+          </button>
+        </section>
+        <section
+          class="panel feed-panel"
+          id="panel-urlhaus"
+          aria-labelledby="uh-title"
+        >
+          <header>
+            <div class="panel-head">
+              <h2 id="uh-title">URLhaus</h2>
+              <span id="uh-n" class="count">—</span>
+            </div>
+            <p class="hint">
+              mais recente primeiro · IOC em texto · clique copia, não abre o
+              destino
+            </p>
+          </header>
+          <div id="uh-list" class="list"></div>
+          <button type="button" class="btn btn-more" id="uh-more" hidden>
+            Mostrar mais
+          </button>
+        </section>
+        <section
+          class="panel feed-panel"
+          id="panel-dshield"
+          aria-labelledby="ds-title"
+        >
+          <header>
+            <div class="panel-head">
+              <h2 id="ds-title">DShield</h2>
+              <span id="ds-n" class="count">—</span>
+            </div>
+            <p class="hint">
+              scanners reportados ao DShield · país ASN · IOC em texto · Copiar
+            </p>
+          </header>
+          <div id="ds-list" class="list"></div>
+          <button type="button" class="btn btn-more" id="ds-more" hidden>
+            Mostrar mais
+          </button>
+        </section>
+        <section
+          class="panel feed-panel"
+          id="panel-feodo"
+          aria-labelledby="feodo-title"
+        >
+          <header>
+            <div class="panel-head">
+              <h2 id="feodo-title">Feodo</h2>
+              <span id="feodo-n" class="count">—</span>
+            </div>
+            <p class="hint">
+              C2 destino (dst_ip) · país RIR · IOC em texto · Copiar · sem hrefs
+              maliciosos
+            </p>
+          </header>
+          <div id="feodo-list" class="list"></div>
+          <button type="button" class="btn btn-more" id="feodo-more" hidden>
+            Mostrar mais
+          </button>
+        </section>
+      </aside>
+    </div>
+
+    <p id="copy-toast" hidden role="status">Copiado</p>
+    <script src="/cti/vendor/leaflet.js"></script>
+    <script src="/cti/app.js"></script>
+    <script src="/cti/bridge.js"></script>
+  </body>
+</html>

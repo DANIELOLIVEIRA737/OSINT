@@ -14,12 +14,22 @@ class LauncherTests(unittest.TestCase):
     @patch("launch.urllib.request.build_opener")
     def test_reuses_running_atlas(self, build, browser):
         response = io.BytesIO(
-            json.dumps({"app": "atlas", "version": 3, "status": "ok"}).encode()
+            json.dumps(
+                {"app": "atlas", "version": 3, "status": "ok", "build": app.APP_BUILD}
+            ).encode()
         )
         build.return_value.open.return_value = response
         with patch.dict(os.environ, {"PORT": "8000"}):
             launch.main()
         browser.assert_called_once_with("http://127.0.0.1:8000")
+
+    @patch("launch.urllib.request.build_opener")
+    def test_old_server_requires_restart_instead_of_reusing_mixed_files(self, build):
+        build.return_value.open.return_value = io.BytesIO(
+            json.dumps({"app": "atlas", "version": 3}).encode()
+        )
+        with self.assertRaisesRegex(RuntimeError, "versão anterior"):
+            launch.main()
 
     @patch("app.serve")
     @patch("launch.socket.socket")

@@ -2291,3 +2291,18 @@ td small {
     display: none !important;
   }
 }
+.nav-item[href] {
+  text-decoration: none;
+}
+.graph-node.type-indicator circle {
+  fill: #502b3a;
+  stroke: #efa7b6;
+}
+@media (max-width: 760px) {
+  .sidebar .brand-caption {
+    display: none;
+  }
+  .sidebar nav .nav-item {
+    padding: 7px;
+  }
+}

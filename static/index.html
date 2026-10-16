@@ -24,6 +24,9 @@
       </div>
       <p class="nav-label">WORKSPACE</p>
       <nav aria-label="Navegação principal">
+        <a class="nav-item" href="/cti/"
+          ><span data-icon="activity"></span>CTI · mapa & feeds</a
+        >
         <button class="nav-item" id="show-projects">
           <span data-icon="layers"></span>Projetos & monitorização</button
         ><button class="nav-item" id="show-company">
@@ -159,6 +162,9 @@
             </div>
           </form>
           <label class="refresh-option"
+            ><input type="checkbox" id="cti-check" />Cruzar alvo e IPs com
+            URLhaus, DShield e Feodo</label
+          ><label class="refresh-option"
             ><input type="checkbox" id="fresh-search" />Atualizar fontes em
             cache (ignorar cache de 5 minutos)</label
           >

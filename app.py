@@ -19,11 +19,15 @@ from pathlib import Path
 import copy
 from workspace import Store, InstanceLock
 from intelligence import graph, compare
+from cti import CTIService, passive_identifier
 
+APP_BUILD = "atlas-cti-1"
 ROOT = Path(__file__).parent
 POOL = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 LIMIT = threading.BoundedSemaphore(4)
 STORE = None
+CTI = None
+CTI_INIT_LOCK = threading.Lock()
 CACHE = {}
 CACHE_LOCK = threading.Lock()
 CONTEXT = threading.local()
@@ -36,6 +40,39 @@ def store():
             Path(os.environ.get("ATLAS_DATA_DIR", str(ROOT / "data"))) / "atlas.sqlite3"
         )
     return STORE
+
+
+def cti_service():
+    global CTI
+    if CTI is None:
+        with CTI_INIT_LOCK:
+            if CTI is None:
+                CTI = CTIService(fetch)
+    return CTI
+
+
+def cti_report(value):
+    started = time.monotonic()
+    host, kind = passive_identifier(value)
+    result = guarded(cti_service().correlate, host)
+    report = {
+        "version": 3,
+        "target": host,
+        "input": value,
+        "type": kind,
+        "mode": "cti",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "results": {"threat_intelligence": result},
+        "summary": {
+            "completed": int(result["status"] == "ok"),
+            "total": 1,
+            "findings": [],
+        },
+    }
+    report["duration_ms"] = round((time.monotonic() - started) * 1000)
+    report["summary"]["findings"] = summarize(report["results"])
+    report["graph"] = graph(report)
+    return report
 
 
 def target(value):
@@ -858,6 +895,17 @@ def summarize(results):
                         "detail": "O domínio pode não enviar correio. DMARC pode ser herdado de um domínio organizacional.",
                     }
                 )
+    cti = results.get("threat_intelligence", {})
+    if cti.get("status") == "ok" and cti["data"].get("matches"):
+        matches = cti["data"]["matches"]
+        findings.append(
+            {
+                "level": "review",
+                "title": str(len(matches)) + " correspondência(s) em fontes CTI",
+                "source": "threat_intelligence",
+                "detail": "Consultar datas, fonte e indicador. A correspondência numa lista não confirma comprometimento do domínio; KEV descreve uma CVE, não uma vulnerabilidade verificada neste alvo.",
+            }
+        )
     tls = results.get("tls", {})
     if tls.get("status") == "ok" and tls["data"].get("valid_until"):
         try:
@@ -879,7 +927,7 @@ def summarize(results):
     return findings
 
 
-def investigate(value, deep=False, expand=False, refresh=False):
+def investigate(value, deep=False, expand=False, refresh=False, with_cti=False):
     started = time.monotonic()
     host, url, kind = target(value)
     tasks = {
@@ -919,6 +967,11 @@ def investigate(value, deep=False, expand=False, refresh=False):
     results = {name: f.result() for name, f in futures.items()}
     if deep and expand and kind != "ip":
         results["subdomains"] = guarded(subdomains, host, results)
+    if with_cti:
+        addresses = results.get("network", {}).get("data", {}).get("addresses", [])
+        results["threat_intelligence"] = guarded(
+            cti_service().correlate, host, addresses, refresh
+        )
     report = {
         "version": 3,
         "target": host,
@@ -946,7 +999,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+            (
+                "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; frame-ancestors 'none'; base-uri 'none'"
+                if self.path.startswith("/cti/")
+                else "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+            ),
         )
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -971,7 +1028,20 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.urlsplit(self.path).path
         try:
             if path == "/health":
-                return self.json(200, {"status": "ok", "app": "atlas", "version": 3})
+                return self.json(
+                    200,
+                    {"status": "ok", "app": "atlas", "version": 3, "build": APP_BUILD},
+                )
+            if path in ("/api/cti/feed", "/api/feed"):
+                force = urllib.parse.parse_qs(
+                    urllib.parse.urlsplit(self.path).query
+                ).get("force") == ["1"]
+                return self.json(200, cti_service().feed(force))
+            if path == "/cti":
+                self.send_response(302)
+                self.send_header("Location", "/cti/")
+                self.end_headers()
+                return
             if path == "/api/projects":
                 return self.json(200, store().projects())
             if re.fullmatch(r"/api/projects/[a-f0-9]{32}", path):
@@ -993,6 +1063,16 @@ class Handler(BaseHTTPRequestHandler):
                 ]
                 return self.json(200, project)
             files = {
+                "/cti/": ("cti/index.html", "text/html"),
+                "/cti/app.js": ("cti/app.js", "text/javascript"),
+                "/cti/bridge.js": ("cti/bridge.js", "text/javascript"),
+                "/cti/styles.css": ("cti/styles.css", "text/css"),
+                "/cti/vendor/leaflet.js": ("cti/vendor/leaflet.js", "text/javascript"),
+                "/cti/vendor/leaflet.css": ("cti/vendor/leaflet.css", "text/css"),
+                "/cti/vendor/world.geojson": (
+                    "cti/vendor/world.geojson",
+                    "application/geo+json",
+                ),
                 "/": ("index.html", "text/html"),
                 "/style.css": ("style.css", "text/css"),
                 "/app.js": ("app.js", "text/javascript"),
@@ -1071,7 +1151,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/monitors/toggle":
                 store().set_monitor(data.get("id"), data.get("enabled"))
                 return self.json(200, {"updated": True})
-            if path not in ("/api/investigate", "/api/company", "/api/monitors/run"):
+            if path not in (
+                "/api/investigate",
+                "/api/company",
+                "/api/monitors/run",
+                "/api/cti/lookup",
+            ):
                 return self.json(404, {"error": "Não encontrado."})
             if not LIMIT.acquire(blocking=False):
                 return self.json(
@@ -1083,13 +1168,15 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if path == "/api/monitors/run":
                     return self.json(200, run_monitor(data.get("id")))
+                if path == "/api/cti/lookup":
+                    return self.json(200, cti_report(data.get("indicator")))
                 if path == "/api/company":
                     return self.json(200, company_search(data.get("query")))
                 if not isinstance(data.get("target"), str):
                     raise ValueError("Indique um alvo válido.")
                 if any(
                     type(data.get(key, False)) is not bool
-                    for key in ("deep", "expand", "refresh")
+                    for key in ("deep", "expand", "refresh", "cti")
                 ):
                     raise ValueError("O modo de pesquisa não é válido.")
                 result = investigate(
@@ -1097,6 +1184,7 @@ class Handler(BaseHTTPRequestHandler):
                     data.get("deep", False),
                     data.get("expand", False),
                     data.get("refresh", False),
+                    data.get("cti", False),
                 )
                 return self.json(200, result)
             finally:

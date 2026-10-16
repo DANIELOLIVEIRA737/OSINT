@@ -7,6 +7,7 @@ let projects = [],
   graphY = 0;
 const typeLabels = {
   target: "Alvo",
+  indicator: "Indicador reportado",
   domain: "Domínio",
   ip: "Endereço IP",
   asn: "ASN",
@@ -54,7 +55,15 @@ function downloadJson(value, name) {
 }
 async function loadProjects() {
   projects = await api("/api/projects");
-  const previous = activeProject;
+  const previous =
+    activeProject ||
+    (() => {
+      try {
+        return localStorage.getItem("atlas.activeProject") || "";
+      } catch {
+        return "";
+      }
+    })();
   $("active-project").replaceChildren(
     new Option("Pesquisa avulsa · sem guardar", ""),
   );
@@ -98,6 +107,10 @@ function renderProjectList() {
 }
 async function selectProject(id) {
   activeProject = id;
+  try {
+    if (id) localStorage.setItem("atlas.activeProject", id);
+    else localStorage.removeItem("atlas.activeProject");
+  } catch {}
   $("active-project").value = id;
   renderProjectList();
   $("storage-status").textContent = id
@@ -848,3 +861,25 @@ setInterval(async () => {
     /* Existing reports remain usable while the local server restarts. */
   }
 }, 30000);
+
+const incomingIndicator = new URLSearchParams(location.search).get("indicator");
+if (incomingIndicator) {
+  (async () => {
+    try {
+      await loadProjects();
+      notify(
+        "A comparar o indicador com fontes CTI. O destino não será visitado.",
+      );
+      report = await persistReport(
+        await api("/api/cti/lookup", { indicator: incomingIndicator }),
+      );
+      $("target").value = report.target;
+      render();
+      history.unshift(report);
+      renderHistory();
+      window.history.replaceState({}, "", location.pathname);
+    } catch (error) {
+      notify(error.message, true);
+    }
+  })();
+}

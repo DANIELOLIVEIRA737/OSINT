@@ -28,11 +28,17 @@ def main():
             port = saved_port
     except (OSError, ValueError):
         pass
+    import app
+
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
         with opener.open(f"http://127.0.0.1:{port}/health", timeout=2) as response:
             health = json.load(response)
         if health.get("app") == "atlas" and health.get("version") == 3:
+            if health.get("build") != app.APP_BUILD:
+                raise RuntimeError(
+                    "Está aberta uma versão anterior do Atlas. Fecha a janela antiga com Ctrl+C e volta a abrir Iniciar Atlas.bat."
+                )
             webbrowser.open(f"http://127.0.0.1:{port}")
             print(
                 "O Atlas já está aberto. Feche esta janela; o servidor existente continua ativo."

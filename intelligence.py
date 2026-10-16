@@ -86,6 +86,14 @@ def graph(report):
                     company_leis.setdefault(lei, []).append(entity)
                 for url in candidate.get("websites", [])[:3]:
                     link(entity, node("domain", url), "site indicado pela fonte", name)
+        elif name == "threat_intelligence":
+            for match in d.get("matches", [])[:20]:
+                link(
+                    root,
+                    node("indicator", match["ioc"]),
+                    "reportado por " + match["sourceLabel"],
+                    name,
+                )
         elif name == "business_registry":
             for record in d.get("records", [])[:8]:
                 entity = node(
@@ -107,6 +115,10 @@ def graph(report):
 
 
 IGNORE = {
+    "observed_at",
+    "observedAt",
+    "fetchedAt",
+    "assessment",
     "source",
     "note",
     "ttl",
@@ -173,7 +185,51 @@ def compare(before, after):
                 }
             )
             continue
-        walk(normalize(old["data"]), normalize(new["data"]), name)
+        old_data, new_data = old["data"], new["data"]
+        if name == "threat_intelligence":
+            states = [
+                {s["source"]: s["available"] for s in d.get("sources_checked", [])}
+                for d in (old_data, new_data)
+            ]
+            common = {
+                source
+                for source in set(states[0]) | set(states[1])
+                if states[0].get(source) and states[1].get(source)
+            }
+            for source in sorted(set(states[0]) | set(states[1])):
+                if source not in common:
+                    coverage.append(
+                        {
+                            "module": name + "/" + source,
+                            "before": "ok" if states[0].get(source) else "error",
+                            "after": "ok" if states[1].get(source) else "error",
+                        }
+                    )
+            if not common:
+                continue
+            old_data = {
+                **old_data,
+                "matches": [
+                    m for m in old_data.get("matches", []) if m["source"] in common
+                ],
+                "sources_checked": [
+                    s
+                    for s in old_data.get("sources_checked", [])
+                    if s["source"] in common
+                ],
+            }
+            new_data = {
+                **new_data,
+                "matches": [
+                    m for m in new_data.get("matches", []) if m["source"] in common
+                ],
+                "sources_checked": [
+                    s
+                    for s in new_data.get("sources_checked", [])
+                    if s["source"] in common
+                ],
+            }
+        walk(normalize(old_data), normalize(new_data), name)
     return {
         "target": after["target"],
         "before_date": before["created_at"],
