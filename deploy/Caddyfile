@@ -1,0 +1,9 @@
+{$ATLAS_DOMAIN} {
+    basic_auth {
+        {$ATLAS_ADMIN} {$ATLAS_PASSWORD_HASH}
+    }
+    header Strict-Transport-Security "max-age=31536000"
+    reverse_proxy atlas:8000 {
+        header_up -Authorization
+    }
+}

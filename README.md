@@ -111,6 +111,9 @@ Os fornecedores recebem as consultas e têm termos próprios. Antes de comercial
 
 ## Segurança e configuração local
 
+Para alojar a aplicação completa, consulta [Publicação com Docker, HTTPS e acesso protegido](deploy/README.md).
+Inclui armazenamento persistente; publicar o código no GitHub não publica o serviço.
+
 Por defeito o servidor escuta **apenas em `127.0.0.1`**, verifica o Host e rejeita submissões de outras origens. Não há contas de utilizador ou autenticação: destina-se ao teu computador. Não exponhas a pasta de dados nem o servidor publicamente sem autenticação, HTTPS e controlo de acesso num reverse proxy.
 
 Os destinos HTTP são validados como públicos, ligando ao IP validado com Host/SNI corretos, e os redirecionamentos são novamente verificados. Portas diferentes de 80/443, redes privadas/reservadas e URLs com credenciais são rejeitadas. Os documentos públicos não seguem redirecionamentos para outro site. A verificação TLS permanece ativa. Cookies recebidos não são guardados no relatório; alvos e relatórios não são escritos nos logs de pedidos.

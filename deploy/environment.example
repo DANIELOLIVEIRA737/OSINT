@@ -1,0 +1,6 @@
+# Copia para .env na raiz. Nunca publiques o .env.
+ATLAS_DOMAIN=atlas.exemplo.pt
+ATLAS_ADMIN=daniel
+# Gerar interativamente: docker run --rm -it caddy:2-alpine caddy hash-password
+# Aspas simples preservam os caracteres $ do hash no Docker Compose.
+ATLAS_PASSWORD_HASH='SUBSTITUIR_PELO_HASH_BCRYPT'

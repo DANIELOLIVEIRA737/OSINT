@@ -1,0 +1,33 @@
+services:
+  atlas:
+    build: .
+    restart: unless-stopped
+    environment:
+      ATLAS_ALLOW_REMOTE: "1"
+    volumes:
+      - atlas_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      ATLAS_DOMAIN: ${ATLAS_DOMAIN:?Define o dominio em .env}
+      ATLAS_ADMIN: ${ATLAS_ADMIN:?Define o utilizador em .env}
+      ATLAS_PASSWORD_HASH: ${ATLAS_PASSWORD_HASH:?Define o hash bcrypt em .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      atlas:
+        condition: service_healthy
+volumes:
+  atlas_data:
+  caddy_data:
+  caddy_config:

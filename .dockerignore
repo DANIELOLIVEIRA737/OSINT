@@ -1,0 +1,10 @@
+*
+!app.py
+!workspace.py
+!intelligence.py
+!cti.py
+!static/
+!static/**
+!integrations/
+!integrations/cti/
+!integrations/cti/**
